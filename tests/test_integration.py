@@ -1,0 +1,119 @@
+"""Integration tests for the full build workflow."""
+
+import json
+from unittest.mock import Mock
+
+
+def test_full_build_workflow_integration(mocker, tmp_path):  # type: ignore
+    """Test the complete build workflow from download to output."""
+    # Mock Scryfall API responses
+    mock_bulk_response = {
+        "data": [
+            {
+                "type": "oracle_cards",
+                "download_uri": "https://example.com/oracle.json",
+            }
+        ]
+    }
+
+    sample_cards = [
+        {
+            "oracle_id": "abc123",
+            "name": "Test Card A",
+            "mana_cost": "{1}{R}",
+            "cmc": 2.0,
+            "type_line": "Creature — Dragon",
+            "oracle_text": "Flying",
+            "colors": ["R"],
+            "color_identity": ["R"],
+            "keywords": ["Flying"],
+            "legalities": {"standard": "legal"},
+            "reserved": False,
+            "set": "tst",
+            "set_name": "Test Set",
+            "rarity": "rare",
+        },
+        {
+            "oracle_id": "def456",
+            "name": "Test Card B",
+            "card_faces": [
+                {
+                    "name": "Front Face",
+                    "oracle_text": "Transform at the beginning of your upkeep.",
+                },
+                {
+                    "name": "Back Face",
+                    "oracle_text": "This creature has hexproof.",
+                },
+            ],
+            "type_line": "Creature // Creature",
+            "colors": ["G"],
+            "color_identity": ["G"],
+            "keywords": [],
+            "legalities": {"standard": "legal"},
+            "reserved": False,
+            "set": "tst",
+            "set_name": "Test Set",
+            "rarity": "uncommon",
+        },
+    ]
+
+    mock_get = mocker.patch("requests.get")
+    bulk_response = Mock()
+    bulk_response.json.return_value = mock_bulk_response
+
+    cards_response = Mock()
+    cards_response.json.return_value = sample_cards
+
+    mock_get.side_effect = [bulk_response, cards_response]
+
+    # Import and run build command
+    from ccx.commands import build
+
+    # Patch DATA_DIR to use tmp_path
+    mocker.patch.object(build, "DATA_DIR", tmp_path)
+
+    # Run the build
+    build.build()
+
+    # Verify output files
+    output_file = tmp_path / "scryfall_oracle_trimmed.csv.gz"
+    manifest_file = tmp_path / "manifest.json"
+
+    assert output_file.exists(), "Output CSV.GZ file should exist"
+    assert manifest_file.exists(), "Manifest file should exist"
+
+    # Verify manifest content
+    with manifest_file.open() as f:
+        manifest = json.load(f)
+
+    assert "build_date" in manifest
+    assert "files" in manifest
+    assert "total_files" in manifest
+    assert manifest["total_files"] > 0
+
+
+def test_cli_help_command(mocker):  # type: ignore
+    """Test that the CLI help command works."""
+    from click.testing import CliRunner
+
+    from ccx.cli import cli
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["--help"])
+
+    assert result.exit_code == 0
+    assert "MTG rules + deckbuilding GPT CLI" in result.output
+
+
+def test_cli_build_help_command(mocker):  # type: ignore
+    """Test that the build command help works."""
+    from click.testing import CliRunner
+
+    from ccx.cli import cli
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["build", "--help"])
+
+    assert result.exit_code == 0
+    assert "Download and process Scryfall oracle cards data" in result.output
