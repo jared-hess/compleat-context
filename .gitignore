@@ -205,3 +205,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Project-specific
+# Ignore uncompressed CSV files, but keep .csv.gz and manifest.json for nightly refresh
+data/*.csv
+!data/*.csv.gz
+!data/manifest.json
