@@ -1,0 +1,50 @@
+[tool.poetry]
+name = "compleat-context"
+version = "0.1.0"
+description = "MTG rules + deckbuilding GPT"
+authors = ["Your Name <you@example.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "ccx"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+click = "^8.1.0"
+requests = "^2.32.0"
+pandas = "^2.2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"
+pytest-mock = "^3.14.0"
+black = "^24.8.0"
+ruff = "^0.6.0"
+mypy = "^1.11.0"
+pre-commit = "^3.8.0"
+types-requests = "^2.32.0"
+pandas-stubs = "^2.2.0"
+
+[tool.poetry.scripts]
+ccx = "ccx.cli:main"
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+fixable = ["ALL"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+strict = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
