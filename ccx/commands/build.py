@@ -182,6 +182,46 @@ def build_oracle_price_index(
     return price_index
 
 
+def filter_playable_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Filter out non-playable cards (art cards, tokens, emblems, etc.).
+
+    This function removes:
+    - Art series cards (layout: "art_series")
+    - Tokens (layout: "token", "double_faced_token")
+    - Emblems (layout: "emblem")
+    - Memorabilia (set_type: "memorabilia")
+    - Art Series cards (set_name contains "Art Series")
+    - Cards without oracle_text or type_line
+    """
+    playable_cards = []
+
+    for card in cards:
+        # Filter by layout
+        layout = card.get("layout", "")
+        if layout in {"art_series", "token", "double_faced_token", "emblem"}:
+            continue
+
+        # Filter by set_type
+        set_type = card.get("set_type", "")
+        if set_type == "memorabilia":
+            continue
+
+        # Filter by set_name (Art Series fallback)
+        set_name = card.get("set_name", "")
+        if "Art Series" in set_name:
+            continue
+
+        # Require oracle_text or type_line
+        oracle_text = card.get("oracle_text", "")
+        type_line = card.get("type_line", "")
+        if not oracle_text and not type_line:
+            continue
+
+        playable_cards.append(card)
+
+    return playable_cards
+
+
 def merge_dfc_oracle_text(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Merge double-faced card oracle text."""
     processed_cards = []
@@ -392,6 +432,14 @@ def build() -> None:
 
     # Download oracle cards data
     cards = download_scryfall_data(ORACLE_CARDS_TYPE)
+
+    # Filter out non-playable cards
+    click.echo("Filtering out non-playable cards...")
+    original_count = len(cards)
+    cards = filter_playable_cards(cards)
+    filtered_count = len(cards)
+    click.echo(f"Filtered {original_count - filtered_count} non-playable cards "
+               f"({filtered_count} remaining)")
 
     # Merge DFC oracle text
     click.echo("Merging DFC oracle text...")
