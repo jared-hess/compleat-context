@@ -12,6 +12,7 @@ import requests
 
 SCRYFALL_BULK_DATA_URL = "https://api.scryfall.com/bulk-data"
 ORACLE_CARDS_TYPE = "oracle_cards"
+DEFAULT_CARDS_TYPE = "default_cards"
 DATA_DIR = Path("data")
 MAX_FILE_SIZE_MB = 50
 WUBRG = ["W", "U", "B", "R", "G"]
@@ -71,6 +72,116 @@ def download_scryfall_data(bulk_type: str = ORACLE_CARDS_TYPE) -> list[dict[str,
     return cards
 
 
+def _best_price_from_printing(prices: dict[str, Any]) -> list[tuple[str, float]]:
+    """Extract numeric USD prices from a printing's prices dict.
+
+    Returns list of (finish, price) tuples for usd, usd_foil, usd_etched.
+    """
+    result = []
+
+    # Map price keys to finish types
+    price_map = [
+        ("usd", "nonfoil"),
+        ("usd_foil", "foil"),
+        ("usd_etched", "etched"),
+    ]
+
+    for price_key, finish in price_map:
+        price_str = prices.get(price_key)
+        if price_str:
+            try:
+                price_val = float(price_str)
+                result.append((finish, price_val))
+            except (ValueError, TypeError):
+                # Skip invalid price strings
+                pass
+
+    return result
+
+
+def build_oracle_price_index(
+    default_cards: list[dict[str, Any]]
+) -> dict[str, dict[str, str]]:
+    """Build price index from default_cards, aggregating by oracle_id.
+
+    For each oracle_id, computes:
+    - lowest_price_usd, lowest_price_finish, lowest_price_set, lowest_price_collector
+    - median_price_usd, highest_price_usd
+    - price_summary string
+
+    Returns dict mapping oracle_id -> dict of price fields (all strings).
+    """
+    from statistics import median
+
+    # Collect all prices per oracle_id
+    oracle_prices: dict[str, list[tuple[float, str, str, str]]] = {}
+
+    for card in default_cards:
+        oracle_id = card.get("oracle_id")
+        if not oracle_id:
+            continue
+
+        prices = card.get("prices")
+        if not prices:
+            continue
+
+        set_code = card.get("set", "")
+        collector_number = card.get("collector_number", "")
+
+        # Extract all USD prices for this printing
+        for finish, price_val in _best_price_from_printing(prices):
+            if oracle_id not in oracle_prices:
+                oracle_prices[oracle_id] = []
+            oracle_prices[oracle_id].append(
+                (price_val, finish, set_code, collector_number)
+            )
+
+    # Build the index
+    price_index: dict[str, dict[str, str]] = {}
+
+    for oracle_id, price_list in oracle_prices.items():
+        if not price_list:
+            continue
+
+        # Sort by price to find min/max
+        price_list.sort(key=lambda x: x[0])
+
+        # Extract just the price values for median/highest
+        price_values = [p[0] for p in price_list]
+
+        # Cheapest
+        lowest_price, lowest_finish, lowest_set, lowest_collector = price_list[0]
+
+        # Median and highest
+        median_price = median(price_values)
+        highest_price = price_values[-1]
+
+        # Build price_summary
+        summary_parts = [f"${lowest_price:.2f}"]
+        summary_parts.append(
+            f"(cheapest: {lowest_set.upper()} #{lowest_collector}, {lowest_finish})"
+        )
+
+        # Add range/median if there are multiple prices
+        if len(price_values) > 1:
+            summary_parts.append(f"Range ${lowest_price:.2f}–${highest_price:.2f}.")
+            summary_parts.append(f"median ${median_price:.2f}.")
+
+        price_summary = " ".join(summary_parts)
+
+        price_index[oracle_id] = {
+            "lowest_price_usd": f"{lowest_price:.2f}",
+            "lowest_price_finish": lowest_finish,
+            "lowest_price_set": lowest_set,
+            "lowest_price_collector": lowest_collector,
+            "median_price_usd": f"{median_price:.2f}",
+            "highest_price_usd": f"{highest_price:.2f}",
+            "price_summary": price_summary,
+        }
+
+    return price_index
+
+
 def merge_dfc_oracle_text(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Merge double-faced card oracle text."""
     processed_cards = []
@@ -96,6 +207,7 @@ def merge_dfc_oracle_text(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def trim_and_dedupe_cards(
     cards: list[dict[str, Any]],
+    price_index: dict[str, dict[str, str]] | None = None,
 ) -> list[dict[str, Any]]:
     """Trim to key fields and deduplicate by oracle_id."""
     # Key fields to keep from original data
@@ -110,6 +222,13 @@ def trim_and_dedupe_cards(
         "set",
         "set_name",
         "rarity",
+        "lowest_price_usd",
+        "lowest_price_finish",
+        "lowest_price_set",
+        "lowest_price_collector",
+        "median_price_usd",
+        "highest_price_usd",
+        "price_summary",
     ]
 
     trimmed_cards = []
@@ -157,6 +276,28 @@ def trim_and_dedupe_cards(
     # Deduplicate by oracle_id, keeping first occurrence
     if "oracle_id" in df.columns:
         df = df.drop_duplicates(subset=["oracle_id"], keep="first")
+
+    # Merge price data if provided
+    if price_index and "oracle_id" in df.columns:
+        # Add price columns with empty strings as default
+        for field in [
+            "lowest_price_usd",
+            "lowest_price_finish",
+            "lowest_price_set",
+            "lowest_price_collector",
+            "median_price_usd",
+            "highest_price_usd",
+            "price_summary",
+        ]:
+            if field not in df.columns:
+                df[field] = ""
+
+        # Update with price data
+        for idx in df.index:
+            oracle_id = df.loc[idx, "oracle_id"]
+            if oracle_id and oracle_id in price_index:
+                for field, value in price_index[oracle_id].items():
+                    df.loc[idx, field] = value
 
     result: list[dict[str, Any]] = df.to_dict("records")  # type: ignore[assignment]
     return result
@@ -249,16 +390,25 @@ def build() -> None:
     """Download and process Scryfall oracle cards data."""
     click.echo("Starting build process...")
 
-    # Download data
-    cards = download_scryfall_data()
+    # Download oracle cards data
+    cards = download_scryfall_data(ORACLE_CARDS_TYPE)
 
     # Merge DFC oracle text
     click.echo("Merging DFC oracle text...")
     cards = merge_dfc_oracle_text(cards)
 
-    # Trim and deduplicate
+    # Download default_cards for price data
+    click.echo("Downloading default_cards for price data...")
+    default_cards = download_scryfall_data(DEFAULT_CARDS_TYPE)
+
+    # Build price index
+    click.echo("Building price index...")
+    price_index = build_oracle_price_index(default_cards)
+    click.echo(f"Indexed prices for {len(price_index)} cards")
+
+    # Trim and deduplicate, merging price data
     click.echo("Trimming fields and deduplicating...")
-    cards = trim_and_dedupe_cards(cards)
+    cards = trim_and_dedupe_cards(cards, price_index)
 
     # Write output files
     click.echo("Writing output files...")
