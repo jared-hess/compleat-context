@@ -7,16 +7,33 @@ from unittest.mock import Mock
 def test_full_build_workflow_integration(mocker, tmp_path):  # type: ignore
     """Test the complete build workflow from download to output."""
     # Mock Scryfall API responses
-    mock_bulk_response = {
+    mock_bulk_response_oracle = {
         "data": [
             {
                 "type": "oracle_cards",
                 "download_uri": "https://example.com/oracle.json",
-            }
+            },
+            {
+                "type": "default_cards",
+                "download_uri": "https://example.com/default.json",
+            },
         ]
     }
 
-    sample_cards = [
+    mock_bulk_response_default = {
+        "data": [
+            {
+                "type": "oracle_cards",
+                "download_uri": "https://example.com/oracle.json",
+            },
+            {
+                "type": "default_cards",
+                "download_uri": "https://example.com/default.json",
+            },
+        ]
+    }
+
+    sample_oracle_cards = [
         {
             "oracle_id": "abc123",
             "name": "Test Card A",
@@ -58,14 +75,52 @@ def test_full_build_workflow_integration(mocker, tmp_path):  # type: ignore
         },
     ]
 
+    sample_default_cards = [
+        {
+            "oracle_id": "abc123",
+            "name": "Test Card A",
+            "set": "tst",
+            "collector_number": "1",
+            "prices": {
+                "usd": "5.00",
+                "usd_foil": "10.00",
+            },
+        },
+        {
+            "oracle_id": "def456",
+            "name": "Test Card B",
+            "set": "tst",
+            "collector_number": "2",
+            "prices": {
+                "usd": "2.50",
+            },
+        },
+    ]
+
     mock_get = mocker.patch("requests.get")
-    bulk_response = Mock()
-    bulk_response.json.return_value = mock_bulk_response
 
-    cards_response = Mock()
-    cards_response.json.return_value = sample_cards
+    # First call: bulk data list for oracle_cards
+    bulk_response_oracle = Mock()
+    bulk_response_oracle.json.return_value = mock_bulk_response_oracle
 
-    mock_get.side_effect = [bulk_response, cards_response]
+    # Second call: download oracle_cards
+    cards_response_oracle = Mock()
+    cards_response_oracle.json.return_value = sample_oracle_cards
+
+    # Third call: bulk data list for default_cards
+    bulk_response_default = Mock()
+    bulk_response_default.json.return_value = mock_bulk_response_default
+
+    # Fourth call: download default_cards
+    cards_response_default = Mock()
+    cards_response_default.json.return_value = sample_default_cards
+
+    mock_get.side_effect = [
+        bulk_response_oracle,
+        cards_response_oracle,
+        bulk_response_default,
+        cards_response_default,
+    ]
 
     # Import and run build command
     from ccx.commands import build
