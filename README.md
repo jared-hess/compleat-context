@@ -42,13 +42,34 @@ This command will:
 4. Aggregate prices across all printings and finishes per oracle_id
 5. Trim to essential fields (oracle_id, name, mana_cost, type_line, etc.)
 6. Deduplicate by oracle_id
-7. Write to `data/scryfall_oracle_trimmed.csv.gz` (or split files if >50MB)
-8. Generate `data/manifest.json` with build metadata
+7. Convert arrays/objects to valid JSON strings for GPT compatibility
+8. Add GPT-friendly flat fields (colors_str, keywords_joined, legal_*, etc.)
+9. Write to `data/scryfall_oracle_trimmed.csv.gz` (or split files if >50MB)
+10. Generate `data/manifest.json` with build metadata
 
-**Price Aggregation**: The build process downloads all card printings to compute cheapest, median, and highest USD prices across all finishes (nonfoil, foil, etched). Each oracle row includes seven price fields as flat strings:
+### Data Pipeline: GPT-Friendly Fields
+
+The build process converts Python-style data to JSON and adds flat fields optimized for LLM/CSV consumption:
+
+**JSON Conversions:**
+- `colors`, `color_identity`, `keywords`, `legalities` - Serialized as valid JSON (double-quoted, compact)
+
+**Flat String Fields:**
+- `colors_str` - WUBRG-ordered color string (e.g., `"GR"` for Green/Red)
+- `color_identity_str` - WUBRG-ordered color identity string
+- `keywords_joined` - Semicolon-joined keywords (e.g., `"Haste; Partner"`)
+
+**Legality Fields:**
+- `legal_standard`, `legal_pioneer`, `legal_modern`, `legal_legacy`, `legal_vintage`, `legal_pauper`, `legal_commander` - Individual format legality
+- `legal_summary` - Human-readable summary (e.g., `"Legal: Modern, Commander • Not legal: Pauper"`)
+
+**Price Aggregation:**
+The build process downloads all card printings to compute cheapest, median, and highest USD prices across all finishes (nonfoil, foil, etched). Each oracle row includes seven price fields as flat strings:
 - `lowest_price_usd`, `lowest_price_finish`, `lowest_price_set`, `lowest_price_collector`
 - `median_price_usd`, `highest_price_usd`
 - `price_summary` (human-readable summary, recommended for GPT answers)
+
+**Note:** When using these CSVs with GPT or other tools, prefer the flat fields (`*_str`, `keywords_joined`, `legal_*`, `price_summary`) over parsing JSON for simplicity.
 
 ### Output Files
 

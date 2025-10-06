@@ -10,9 +10,12 @@ import pytest
 
 from ccx.commands.build import (
     _best_price_from_printing,
+    build_legal_summary,
     build_oracle_price_index,
+    colors_str,
     download_scryfall_data,
     merge_dfc_oracle_text,
+    to_json,
     trim_and_dedupe_cards,
     write_manifest,
     write_output_files,
@@ -216,6 +219,172 @@ def test_write_manifest(tmp_path: Path) -> None:
     assert manifest["total_files"] == 2
     assert manifest["files"] == files
     assert "build_date" in manifest
+
+
+def test_to_json() -> None:
+    """Test JSON serialization helper."""
+    # Test list
+    assert to_json(["R", "G"]) == '["R","G"]'
+
+    # Test dict
+    assert to_json({"standard": "legal"}) == '{"standard":"legal"}'
+
+    # Test empty list
+    assert to_json([]) == "[]"
+
+    # Test empty dict
+    assert to_json({}) == "{}"
+
+    # Test None becomes empty list (legacy behavior)
+    assert to_json(None) == "[]"
+
+    # Test unicode preservation
+    assert to_json(["•"]) == '["•"]'
+
+
+def test_colors_str() -> None:
+    """Test WUBRG color string generation."""
+    # Test single color
+    assert colors_str(["R"]) == "R"
+
+    # Test multiple colors in WUBRG order
+    assert colors_str(["G", "R"]) == "RG"
+    assert colors_str(["R", "G"]) == "RG"  # Order shouldn't matter
+
+    # Test all colors
+    assert colors_str(["W", "U", "B", "R", "G"]) == "WUBRG"
+
+    # Test empty list
+    assert colors_str([]) == ""
+
+    # Test None
+    assert colors_str(None) == ""
+
+    # Test colorless (empty)
+    assert colors_str([]) == ""
+
+
+def test_build_legal_summary() -> None:
+    """Test legal summary generation."""
+    # Test legal only
+    leg = {"standard": "legal", "modern": "legal"}
+    assert build_legal_summary(leg) == "Legal: modern, standard"
+
+    # Test not_legal only
+    leg = {"standard": "not_legal"}
+    assert build_legal_summary(leg) == "Not legal: standard"
+
+    # Test banned only
+    leg = {"vintage": "banned"}
+    assert build_legal_summary(leg) == "Banned: vintage"
+
+    # Test mixed
+    leg = {
+        "standard": "legal",
+        "modern": "legal",
+        "pauper": "not_legal",
+        "vintage": "banned",
+    }
+    expected = "Legal: modern, standard • Not legal: pauper • Banned: vintage"
+    assert build_legal_summary(leg) == expected
+
+    # Test empty
+    assert build_legal_summary({}) == ""
+
+
+def test_trim_and_dedupe_cards_with_json_fields(
+    sample_cards: list[dict[str, Any]],
+) -> None:
+    """Test trimming with JSON and flat field conversion."""
+    trimmed = trim_and_dedupe_cards(sample_cards)
+
+    # Check first card
+    card = trimmed[0]
+
+    # Verify JSON fields are valid JSON
+    colors_parsed = json.loads(card["colors"])
+    assert colors_parsed == ["R"]
+
+    color_identity_parsed = json.loads(card["color_identity"])
+    assert color_identity_parsed == ["R"]
+
+    keywords_parsed = json.loads(card["keywords"])
+    assert keywords_parsed == []
+
+    legalities_parsed = json.loads(card["legalities"])
+    assert legalities_parsed == {"standard": "not_legal"}
+
+    # Verify flat fields
+    assert card["colors_str"] == "R"
+    assert card["color_identity_str"] == "R"
+    assert card["keywords_joined"] == ""
+    assert card["legal_standard"] == "not_legal"
+    assert card["legal_summary"] == "Not legal: standard"
+
+    # Check second card (Black Lotus - colorless)
+    card2 = trimmed[1]
+    assert card2["colors_str"] == ""
+    assert card2["color_identity_str"] == ""
+    assert card2["legal_vintage"] == "restricted"
+
+
+def test_keywords_joined() -> None:
+    """Test keywords_joined field."""
+    cards = [
+        {
+            "oracle_id": "test1",
+            "name": "Test Card",
+            "keywords": ["Haste", "Partner"],
+        }
+    ]
+
+    trimmed = trim_and_dedupe_cards(cards)
+    assert trimmed[0]["keywords_joined"] == "Haste; Partner"
+
+
+def test_csv_with_embedded_newlines(tmp_path: Path) -> None:
+    """Test CSV round-trip with embedded newlines in oracle_text."""
+    cards = [
+        {
+            "oracle_id": "test1",
+            "name": "Test Card",
+            "oracle_text": "First line\nSecond line\nThird line",
+            "colors": ["U"],
+            "color_identity": ["U"],
+            "keywords": [],
+            "legalities": {"standard": "legal"},
+        }
+    ]
+
+    trimmed = trim_and_dedupe_cards(cards)
+    files = write_output_files(trimmed, tmp_path)
+
+    # Read back the CSV
+    output_file = tmp_path / files[0]
+    with gzip.open(output_file, "rt", encoding="utf-8") as f:
+        df = pd.read_csv(f)
+
+    # Verify oracle_text preserved newlines
+    assert df.iloc[0]["oracle_text"] == "First line\nSecond line\nThird line"
+
+
+def test_multicolor_wubrg_order() -> None:
+    """Test WUBRG ordering for multicolor cards."""
+    cards = [
+        {
+            "oracle_id": "test1",
+            "name": "Niv-Mizzet",
+            "colors": ["U", "R"],  # Input order
+            "color_identity": ["R", "U"],  # Different input order
+            "keywords": [],
+            "legalities": {},
+        }
+    ]
+
+    trimmed = trim_and_dedupe_cards(cards)
+    # Both should output as "UR" regardless of input order
+    assert trimmed[0]["colors_str"] == "UR"
+    assert trimmed[0]["color_identity_str"] == "UR"
 
 
 def test_best_price_from_printing() -> None:
