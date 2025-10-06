@@ -8,6 +8,7 @@ A Python 3.12 CLI tool for downloading and processing Magic: The Gathering card 
 
 - **Click CLI**: Command-line interface built with [Click](https://click.palletsprojects.com/)
 - **Scryfall Integration**: Downloads oracle card data from [Scryfall](https://scryfall.com/)
+- **Card Filtering**: Automatically filters out non-playable cards (tokens, emblems, art series)
 - **DFC Processing**: Merges double-faced card oracle text
 - **Data Optimization**: Trims to key fields and deduplicates by oracle_id
 - **Smart Splitting**: Automatically splits large files (>50MB) alphabetically (a-f, g-n, o-z)
@@ -37,15 +38,28 @@ poetry run ccx build
 
 This command will:
 1. Download the latest oracle cards bulk data from Scryfall
-2. Merge oracle text for double-faced cards (DFCs)
-3. Download default cards bulk data for pricing information
-4. Aggregate prices across all printings and finishes per oracle_id
-5. Trim to essential fields (oracle_id, name, mana_cost, type_line, etc.)
-6. Deduplicate by oracle_id
-7. Convert arrays/objects to valid JSON strings for GPT compatibility
-8. Add GPT-friendly flat fields (colors_str, keywords_joined, legal_*, etc.)
-9. Write to `data/scryfall_oracle_trimmed.csv.gz` (or split files if >50MB)
-10. Generate `data/manifest.json` with build metadata
+2. **Filter out non-playable cards** (tokens, emblems, art series, memorabilia)
+3. Merge oracle text for double-faced cards (DFCs)
+4. Download default cards bulk data for pricing information
+5. Aggregate prices across all printings and finishes per oracle_id
+6. Trim to essential fields (oracle_id, name, mana_cost, type_line, etc.)
+7. Deduplicate by oracle_id
+8. Convert arrays/objects to valid JSON strings for GPT compatibility
+9. Add GPT-friendly flat fields (colors_str, keywords_joined, legal_*, etc.)
+10. Write to `data/scryfall_oracle_trimmed.csv.gz` (or split files if >50MB)
+11. Generate `data/manifest.json` with build metadata
+
+### Card Filtering
+
+The build pipeline filters out non-playable cards to ensure only real game cards are included in the dataset. The following card types are excluded:
+
+- **Art Series**: Cards with `layout: "art_series"` or set names containing "Art Series"
+- **Tokens**: Cards with `layout: "token"` or `layout: "double_faced_token"`
+- **Emblems**: Cards with `layout: "emblem"`
+- **Memorabilia**: Cards with `set_type: "memorabilia"`
+- **Missing Data**: Cards without both `oracle_text` and `type_line`
+
+This filtering ensures the dataset contains only playable Magic cards suitable for deck building, rules queries, and gameplay analysis.
 
 ### Data Pipeline: GPT-Friendly Fields
 
