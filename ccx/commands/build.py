@@ -438,8 +438,10 @@ def build() -> None:
     original_count = len(cards)
     cards = filter_playable_cards(cards)
     filtered_count = len(cards)
-    click.echo(f"Filtered {original_count - filtered_count} non-playable cards "
-               f"({filtered_count} remaining)")
+    click.echo(
+        f"Filtered {original_count - filtered_count} non-playable cards "
+        f"({filtered_count} remaining)"
+    )
 
     # Merge DFC oracle text
     click.echo("Merging DFC oracle text...")

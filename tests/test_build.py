@@ -881,4 +881,3 @@ def test_filter_playable_cards_comprehensive() -> None:
     assert len(filtered) == 2
     oracle_ids = {card["oracle_id"] for card in filtered}
     assert oracle_ids == {"keep1", "keep2"}
-
