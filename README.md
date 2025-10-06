@@ -40,8 +40,28 @@ This command will:
 2. Merge oracle text for double-faced cards (DFCs)
 3. Trim to essential fields (oracle_id, name, mana_cost, type_line, etc.)
 4. Deduplicate by oracle_id
-5. Write to `data/scryfall_oracle_trimmed.csv.gz` (or split files if >50MB)
-6. Generate `data/manifest.json` with build metadata
+5. Convert arrays/objects to valid JSON strings for GPT compatibility
+6. Add GPT-friendly flat fields (colors_str, keywords_joined, legal_*, etc.)
+7. Write to `data/scryfall_oracle_trimmed.csv.gz` (or split files if >50MB)
+8. Generate `data/manifest.json` with build metadata
+
+### Data Pipeline: GPT-Friendly Fields
+
+The build process converts Python-style data to JSON and adds flat fields optimized for LLM/CSV consumption:
+
+**JSON Conversions:**
+- `colors`, `color_identity`, `keywords`, `legalities` - Serialized as valid JSON (double-quoted, compact)
+
+**Flat String Fields:**
+- `colors_str` - WUBRG-ordered color string (e.g., `"GR"` for Green/Red)
+- `color_identity_str` - WUBRG-ordered color identity string
+- `keywords_joined` - Semicolon-joined keywords (e.g., `"Haste; Partner"`)
+
+**Legality Fields:**
+- `legal_standard`, `legal_pioneer`, `legal_modern`, `legal_legacy`, `legal_vintage`, `legal_pauper`, `legal_commander` - Individual format legality
+- `legal_summary` - Human-readable summary (e.g., `"Legal: Modern, Commander • Not legal: Pauper"`)
+
+**Note:** When using these CSVs with GPT or other tools, prefer the flat fields (`*_str`, `keywords_joined`, `legal_*`) over parsing JSON for simplicity.
 
 ### Output Files
 

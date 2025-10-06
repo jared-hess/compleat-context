@@ -14,6 +14,36 @@ SCRYFALL_BULK_DATA_URL = "https://api.scryfall.com/bulk-data"
 ORACLE_CARDS_TYPE = "oracle_cards"
 DATA_DIR = Path("data")
 MAX_FILE_SIZE_MB = 50
+WUBRG = ["W", "U", "B", "R", "G"]
+
+
+def to_json(v: Any) -> str:
+    """Convert value to valid JSON string with compact separators."""
+    # Convert None to empty list/dict for consistency with existing data
+    if v is None:
+        v = []
+    return json.dumps(v, ensure_ascii=False, separators=(",", ":"))
+
+
+def colors_str(lst: list[str] | None) -> str:
+    """Convert color list to WUBRG-ordered string (e.g., ['G','R'] -> 'GR')."""
+    s = set(lst or [])
+    return "".join(c for c in WUBRG if c in s)
+
+
+def build_legal_summary(leg: dict[str, str]) -> str:
+    """Build human-readable legal summary from legalities dict."""
+    legal = [k for k, v in leg.items() if v == "legal"]
+    not_legal = [k for k, v in leg.items() if v == "not_legal"]
+    banned = [k for k, v in leg.items() if v == "banned"]
+    parts = []
+    if legal:
+        parts.append("Legal: " + ", ".join(sorted(legal)))
+    if not_legal:
+        parts.append("Not legal: " + ", ".join(sorted(not_legal)))
+    if banned:
+        parts.append("Banned: " + ", ".join(sorted(banned)))
+    return " • ".join(parts)
 
 
 def download_scryfall_data(bulk_type: str = ORACLE_CARDS_TYPE) -> list[dict[str, Any]]:
@@ -68,7 +98,7 @@ def trim_and_dedupe_cards(
     cards: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Trim to key fields and deduplicate by oracle_id."""
-    # Key fields to keep
+    # Key fields to keep from original data
     fields_to_keep = [
         "oracle_id",
         "name",
@@ -76,10 +106,6 @@ def trim_and_dedupe_cards(
         "cmc",
         "type_line",
         "oracle_text",
-        "colors",
-        "color_identity",
-        "keywords",
-        "legalities",
         "reserved",
         "set",
         "set_name",
@@ -88,9 +114,41 @@ def trim_and_dedupe_cards(
 
     trimmed_cards = []
     for card in cards:
+        # Start with basic fields
         trimmed_card = {
             field: card.get(field, None) for field in fields_to_keep if field in card
         }
+
+        # Convert colors to JSON and add flat string
+        colors = card.get("colors", [])
+        trimmed_card["colors"] = to_json(colors)
+        trimmed_card["colors_str"] = colors_str(colors)
+
+        # Convert color_identity to JSON and add flat string
+        color_identity = card.get("color_identity", [])
+        trimmed_card["color_identity"] = to_json(color_identity)
+        trimmed_card["color_identity_str"] = colors_str(color_identity)
+
+        # Convert keywords to JSON and add joined string
+        keywords = card.get("keywords", [])
+        trimmed_card["keywords"] = to_json(keywords)
+        trimmed_card["keywords_joined"] = "; ".join(keywords)
+
+        # Convert legalities to JSON and add individual format fields
+        legalities = card.get("legalities", {})
+        trimmed_card["legalities"] = to_json(legalities)
+        for fmt in [
+            "standard",
+            "pioneer",
+            "modern",
+            "legacy",
+            "vintage",
+            "pauper",
+            "commander",
+        ]:
+            trimmed_card[f"legal_{fmt}"] = legalities.get(fmt, "")
+        trimmed_card["legal_summary"] = build_legal_summary(legalities)
+
         trimmed_cards.append(trimmed_card)
 
     # Convert to DataFrame for deduplication
