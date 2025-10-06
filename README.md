@@ -38,10 +38,17 @@ poetry run ccx build
 This command will:
 1. Download the latest oracle cards bulk data from Scryfall
 2. Merge oracle text for double-faced cards (DFCs)
-3. Trim to essential fields (oracle_id, name, mana_cost, type_line, etc.)
-4. Deduplicate by oracle_id
-5. Write to `data/scryfall_oracle_trimmed.csv.gz` (or split files if >50MB)
-6. Generate `data/manifest.json` with build metadata
+3. Download default cards bulk data for pricing information
+4. Aggregate prices across all printings and finishes per oracle_id
+5. Trim to essential fields (oracle_id, name, mana_cost, type_line, etc.)
+6. Deduplicate by oracle_id
+7. Write to `data/scryfall_oracle_trimmed.csv.gz` (or split files if >50MB)
+8. Generate `data/manifest.json` with build metadata
+
+**Price Aggregation**: The build process downloads all card printings to compute cheapest, median, and highest USD prices across all finishes (nonfoil, foil, etched). Each oracle row includes seven price fields as flat strings:
+- `lowest_price_usd`, `lowest_price_finish`, `lowest_price_set`, `lowest_price_collector`
+- `median_price_usd`, `highest_price_usd`
+- `price_summary` (human-readable summary, recommended for GPT answers)
 
 ### Output Files
 
