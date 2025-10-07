@@ -14,6 +14,7 @@ from ccx.commands.build import (
     build_oracle_price_index,
     colors_str,
     download_scryfall_data,
+    filter_playable_cards,
     merge_dfc_oracle_text,
     to_json,
     trim_and_dedupe_cards,
@@ -601,3 +602,282 @@ def test_trim_and_dedupe_cards_without_price_index() -> None:
     assert len(trimmed) == 1
     # Price fields should not exist when no price_index is provided
     assert "lowest_price_usd" not in trimmed[0]
+
+
+def test_filter_playable_cards_removes_art_series() -> None:
+    """Test filtering removes art series cards."""
+    cards = [
+        {
+            "oracle_id": "art1",
+            "name": "Art Card",
+            "layout": "art_series",
+            "oracle_text": "",
+            "type_line": "",
+        },
+        {
+            "oracle_id": "real1",
+            "name": "Real Card",
+            "layout": "normal",
+            "oracle_text": "Draw a card.",
+            "type_line": "Instant",
+        },
+    ]
+
+    filtered = filter_playable_cards(cards)
+    assert len(filtered) == 1
+    assert filtered[0]["oracle_id"] == "real1"
+
+
+def test_filter_playable_cards_removes_tokens() -> None:
+    """Test filtering removes token cards."""
+    cards = [
+        {
+            "oracle_id": "token1",
+            "name": "Goblin Token",
+            "layout": "token",
+            "oracle_text": "",
+            "type_line": "Token Creature — Goblin",
+        },
+        {
+            "oracle_id": "token2",
+            "name": "Day // Night",
+            "layout": "double_faced_token",
+            "oracle_text": "",
+            "type_line": "",
+        },
+        {
+            "oracle_id": "real1",
+            "name": "Lightning Bolt",
+            "layout": "normal",
+            "oracle_text": "Deal 3 damage.",
+            "type_line": "Instant",
+        },
+    ]
+
+    filtered = filter_playable_cards(cards)
+    assert len(filtered) == 1
+    assert filtered[0]["oracle_id"] == "real1"
+
+
+def test_filter_playable_cards_removes_emblems() -> None:
+    """Test filtering removes emblem cards."""
+    cards = [
+        {
+            "oracle_id": "emblem1",
+            "name": "Chandra Emblem",
+            "layout": "emblem",
+            "oracle_text": "You get an emblem.",
+            "type_line": "Emblem",
+        },
+        {
+            "oracle_id": "real1",
+            "name": "Chandra, Torch of Defiance",
+            "layout": "normal",
+            "oracle_text": "+1: Add {R}{R}.",
+            "type_line": "Legendary Planeswalker — Chandra",
+        },
+    ]
+
+    filtered = filter_playable_cards(cards)
+    assert len(filtered) == 1
+    assert filtered[0]["oracle_id"] == "real1"
+
+
+def test_filter_playable_cards_removes_memorabilia() -> None:
+    """Test filtering removes memorabilia set type."""
+    cards = [
+        {
+            "oracle_id": "memo1",
+            "name": "Memorabilia Card",
+            "layout": "normal",
+            "set_type": "memorabilia",
+            "oracle_text": "Some text.",
+            "type_line": "Artifact",
+        },
+        {
+            "oracle_id": "real1",
+            "name": "Black Lotus",
+            "layout": "normal",
+            "set_type": "core",
+            "oracle_text": "{T}: Add three mana.",
+            "type_line": "Artifact",
+        },
+    ]
+
+    filtered = filter_playable_cards(cards)
+    assert len(filtered) == 1
+    assert filtered[0]["oracle_id"] == "real1"
+
+
+def test_filter_playable_cards_removes_art_series_by_name() -> None:
+    """Test filtering removes cards with 'Art Series' in set_name."""
+    cards = [
+        {
+            "oracle_id": "art1",
+            "name": "Mountain",
+            "layout": "normal",
+            "set": "aznr",
+            "set_name": "Zendikar Rising Art Series",
+            "oracle_text": "",
+            "type_line": "Basic Land — Mountain",
+        },
+        {
+            "oracle_id": "real1",
+            "name": "Mountain",
+            "layout": "normal",
+            "set": "znr",
+            "set_name": "Zendikar Rising",
+            "oracle_text": "({T}: Add {R}.)",
+            "type_line": "Basic Land — Mountain",
+        },
+    ]
+
+    filtered = filter_playable_cards(cards)
+    assert len(filtered) == 1
+    assert filtered[0]["oracle_id"] == "real1"
+
+
+def test_filter_playable_cards_requires_oracle_text_or_type_line() -> None:
+    """Test filtering requires oracle_text or type_line."""
+    cards = [
+        {
+            "oracle_id": "empty1",
+            "name": "Empty Card",
+            "layout": "normal",
+            "oracle_text": "",
+            "type_line": "",
+        },
+        {
+            "oracle_id": "has_oracle",
+            "name": "Card with Oracle",
+            "layout": "normal",
+            "oracle_text": "Do something.",
+            "type_line": "",
+        },
+        {
+            "oracle_id": "has_type",
+            "name": "Card with Type",
+            "layout": "normal",
+            "oracle_text": "",
+            "type_line": "Artifact",
+        },
+        {
+            "oracle_id": "has_both",
+            "name": "Card with Both",
+            "layout": "normal",
+            "oracle_text": "Tap: Do something.",
+            "type_line": "Artifact",
+        },
+    ]
+
+    filtered = filter_playable_cards(cards)
+    assert len(filtered) == 3
+    oracle_ids = {card["oracle_id"] for card in filtered}
+    assert oracle_ids == {"has_oracle", "has_type", "has_both"}
+
+
+def test_filter_playable_cards_handles_missing_fields() -> None:
+    """Test filtering handles cards with missing fields gracefully."""
+    cards = [
+        {
+            "oracle_id": "minimal1",
+            "name": "Minimal Card",
+            # No layout field
+            # No set_type field
+            # No set_name field
+            "oracle_text": "Some text.",
+            # No type_line field
+        },
+        {
+            "oracle_id": "minimal2",
+            "name": "Another Minimal",
+            # No layout, set_type, set_name, oracle_text
+            "type_line": "Creature",
+        },
+    ]
+
+    filtered = filter_playable_cards(cards)
+    assert len(filtered) == 2
+    assert filtered[0]["oracle_id"] == "minimal1"
+    assert filtered[1]["oracle_id"] == "minimal2"
+
+
+def test_filter_playable_cards_comprehensive() -> None:
+    """Test filtering with a comprehensive mix of card types."""
+    cards = [
+        # Should keep: normal playable card
+        {
+            "oracle_id": "keep1",
+            "name": "Lightning Bolt",
+            "layout": "normal",
+            "set_type": "expansion",
+            "set_name": "Alpha",
+            "oracle_text": "Deal 3 damage.",
+            "type_line": "Instant",
+        },
+        # Should remove: art series layout
+        {
+            "oracle_id": "remove1",
+            "name": "Art Card",
+            "layout": "art_series",
+            "oracle_text": "",
+            "type_line": "",
+        },
+        # Should remove: token layout
+        {
+            "oracle_id": "remove2",
+            "name": "Goblin Token",
+            "layout": "token",
+            "oracle_text": "",
+            "type_line": "Token Creature",
+        },
+        # Should remove: emblem
+        {
+            "oracle_id": "remove3",
+            "name": "Emblem",
+            "layout": "emblem",
+            "oracle_text": "Text",
+            "type_line": "Emblem",
+        },
+        # Should remove: memorabilia set
+        {
+            "oracle_id": "remove4",
+            "name": "Memorabilia",
+            "layout": "normal",
+            "set_type": "memorabilia",
+            "oracle_text": "Text",
+            "type_line": "Artifact",
+        },
+        # Should remove: Art Series in set name
+        {
+            "oracle_id": "remove5",
+            "name": "Mountain Art",
+            "layout": "normal",
+            "set_name": "Zendikar Rising Art Series",
+            "oracle_text": "",
+            "type_line": "Land",
+        },
+        # Should remove: no oracle text or type line
+        {
+            "oracle_id": "remove6",
+            "name": "Empty",
+            "layout": "normal",
+            "oracle_text": "",
+            "type_line": "",
+        },
+        # Should keep: has type_line even without oracle_text
+        {
+            "oracle_id": "keep2",
+            "name": "Basic Land",
+            "layout": "normal",
+            "set_type": "core",
+            "set_name": "Alpha",
+            "oracle_text": "",
+            "type_line": "Basic Land — Forest",
+        },
+    ]
+
+    filtered = filter_playable_cards(cards)
+    assert len(filtered) == 2
+    oracle_ids = {card["oracle_id"] for card in filtered}
+    assert oracle_ids == {"keep1", "keep2"}
