@@ -9,13 +9,19 @@ from typing import Any
 import click
 import pandas as pd
 import requests
+import tiktoken
 
 SCRYFALL_BULK_DATA_URL = "https://api.scryfall.com/bulk-data"
 ORACLE_CARDS_TYPE = "oracle_cards"
 DEFAULT_CARDS_TYPE = "default_cards"
 DATA_DIR = Path("data")
 MAX_FILE_SIZE_MB = 50
+MAX_FILE_SIZE_BYTES = 512 * 1024 * 1024  # 512MB
+MAX_TOKENS_PER_FILE = 2_000_000
 WUBRG = ["W", "U", "B", "R", "G"]
+
+# Cache the encoding to avoid repeated downloads
+_ENCODING_CACHE: tiktoken.Encoding | None = None
 
 
 def to_json(v: Any) -> str:
@@ -343,10 +349,209 @@ def trim_and_dedupe_cards(
     return result
 
 
-def write_output_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str]:
-    """Write cards to CSV/GZ files, splitting alphabetically if > 50MB."""
+def _get_encoding() -> tiktoken.Encoding:
+    """Get the tiktoken encoding, caching it for reuse."""
+    global _ENCODING_CACHE
+    if _ENCODING_CACHE is None:
+        _ENCODING_CACHE = tiktoken.get_encoding("cl100k_base")
+    return _ENCODING_CACHE
+
+
+def count_tokens(text: str) -> int:
+    """Count tokens in text using tiktoken (cl100k_base encoding for GPT-4)."""
+    encoding = _get_encoding()
+    return len(encoding.encode(text))
+
+
+def write_markdown_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str]:
+    """Write cards to Markdown files, splitting if > 2M tokens or 512MB."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Convert to DataFrame and sort by name
+    df = pd.DataFrame(cards)
+    if "name" in df.columns:
+        df = df.sort_values("name")
+
+    written_files = []
+    current_file_index = 1
+    current_cards: list[str] = []
+    current_tokens = 0
+    current_size_bytes = 0
+
+    for _, row in df.iterrows():
+        # Format card as markdown
+        card_md = f"## {row.get('name', 'Unknown')}\n\n"
+
+        for field, value in row.items():
+            if pd.notna(value) and value != "":
+                card_md += f"**{field}**: {value}\n\n"
+
+        card_md += "---\n\n"
+
+        # Count tokens and size
+        card_tokens = count_tokens(card_md)
+        card_bytes = len(card_md.encode("utf-8"))
+
+        # Check if we need to split
+        if current_cards and (
+            current_tokens + card_tokens > MAX_TOKENS_PER_FILE
+            or current_size_bytes + card_bytes > MAX_FILE_SIZE_BYTES
+        ):
+            # Write current batch
+            filename = (
+                f"scryfall_oracle_trimmed_{current_file_index}.md.gz"
+                if current_file_index > 1
+                else "scryfall_oracle_trimmed.md.gz"
+            )
+            output_path = output_dir / filename
+
+            with gzip.open(output_path, "wt", encoding="utf-8") as f:
+                f.write("".join(current_cards))
+
+            click.echo(
+                f"Wrote {len(current_cards)} cards to {filename} "
+                f"({current_tokens:,} tokens, "
+                f"{current_size_bytes / (1024 * 1024):.2f} MB)"
+            )
+            written_files.append(filename)
+
+            # Reset for next batch
+            current_file_index += 1
+            current_cards = []
+            current_tokens = 0
+            current_size_bytes = 0
+
+        current_cards.append(card_md)
+        current_tokens += card_tokens
+        current_size_bytes += card_bytes
+
+    # Write remaining cards
+    if current_cards:
+        filename = (
+            f"scryfall_oracle_trimmed_{current_file_index}.md.gz"
+            if current_file_index > 1
+            else "scryfall_oracle_trimmed.md.gz"
+        )
+        output_path = output_dir / filename
+
+        with gzip.open(output_path, "wt", encoding="utf-8") as f:
+            f.write("".join(current_cards))
+
+        click.echo(
+            f"Wrote {len(current_cards)} cards to {filename} "
+            f"({current_tokens:,} tokens, "
+            f"{current_size_bytes / (1024 * 1024):.2f} MB)"
+        )
+        written_files.append(filename)
+
+    return written_files
+
+
+def write_jsonl_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str]:
+    """Write cards to JSONL files, splitting if > 2M tokens or 512MB."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Convert to DataFrame and sort by name
+    df = pd.DataFrame(cards)
+    if "name" in df.columns:
+        df = df.sort_values("name")
+
+    written_files = []
+    current_file_index = 1
+    current_lines: list[str] = []
+    current_tokens = 0
+    current_size_bytes = 0
+
+    for _, row in df.iterrows():
+        # Convert row to dict and then to JSON line
+        card_dict = row.to_dict()
+        json_line = json.dumps(card_dict, ensure_ascii=False) + "\n"
+
+        # Count tokens and size
+        line_tokens = count_tokens(json_line)
+        line_bytes = len(json_line.encode("utf-8"))
+
+        # Check if we need to split
+        if current_lines and (
+            current_tokens + line_tokens > MAX_TOKENS_PER_FILE
+            or current_size_bytes + line_bytes > MAX_FILE_SIZE_BYTES
+        ):
+            # Write current batch
+            filename = (
+                f"scryfall_oracle_trimmed_{current_file_index}.jsonl.gz"
+                if current_file_index > 1
+                else "scryfall_oracle_trimmed.jsonl.gz"
+            )
+            output_path = output_dir / filename
+
+            with gzip.open(output_path, "wt", encoding="utf-8") as f:
+                f.writelines(current_lines)
+
+            click.echo(
+                f"Wrote {len(current_lines)} cards to {filename} "
+                f"({current_tokens:,} tokens, "
+                f"{current_size_bytes / (1024 * 1024):.2f} MB)"
+            )
+            written_files.append(filename)
+
+            # Reset for next batch
+            current_file_index += 1
+            current_lines = []
+            current_tokens = 0
+            current_size_bytes = 0
+
+        current_lines.append(json_line)
+        current_tokens += line_tokens
+        current_size_bytes += line_bytes
+
+    # Write remaining cards
+    if current_lines:
+        filename = (
+            f"scryfall_oracle_trimmed_{current_file_index}.jsonl.gz"
+            if current_file_index > 1
+            else "scryfall_oracle_trimmed.jsonl.gz"
+        )
+        output_path = output_dir / filename
+
+        with gzip.open(output_path, "wt", encoding="utf-8") as f:
+            f.writelines(current_lines)
+
+        click.echo(
+            f"Wrote {len(current_lines)} cards to {filename} "
+            f"({current_tokens:,} tokens, "
+            f"{current_size_bytes / (1024 * 1024):.2f} MB)"
+        )
+        written_files.append(filename)
+
+    return written_files
+
+
+def write_output_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str]:
+    """Write cards to CSV/GZ, JSONL/GZ, and MD/GZ files with appropriate splitting."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    all_written_files = []
+
+    # Write CSV files (existing logic)
+    click.echo("Writing CSV files...")
+    csv_files = _write_csv_files(cards, output_dir)
+    all_written_files.extend(csv_files)
+
+    # Write JSONL files
+    click.echo("Writing JSONL files...")
+    jsonl_files = write_jsonl_files(cards, output_dir)
+    all_written_files.extend(jsonl_files)
+
+    # Write Markdown files
+    click.echo("Writing Markdown files...")
+    md_files = write_markdown_files(cards, output_dir)
+    all_written_files.extend(md_files)
+
+    return all_written_files
+
+
+def _write_csv_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str]:
+    """Write cards to CSV/GZ files, splitting alphabetically if > 50MB."""
     # Convert to DataFrame
     df = pd.DataFrame(cards)
 
@@ -359,7 +564,7 @@ def write_output_files(cards: list[dict[str, Any]], output_dir: Path) -> list[st
     df.to_csv(temp_file, index=False)
 
     file_size_mb = temp_file.stat().st_size / (1024 * 1024)
-    click.echo(f"Total file size: {file_size_mb:.2f} MB")
+    click.echo(f"Total CSV file size: {file_size_mb:.2f} MB")
 
     written_files = []
 
