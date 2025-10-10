@@ -32,11 +32,27 @@ jobs:
 
       - name: Run build
         run: poetry run ccx build
+        
+      - name: Download Commander Spellbook data (conditional)
+        run: |
+          # Download only if newer (using curl -z for conditional download)
+          mkdir -p /tmp/spellbook_cache
+          CACHE_FILE="/tmp/spellbook_cache/variants.json"
+          if [ -f "$CACHE_FILE" ]; then
+            curl -z "$CACHE_FILE" -o "$CACHE_FILE" -L https://json.commanderspellbook.com/variants.json
+          else
+            curl -o "$CACHE_FILE" -L https://json.commanderspellbook.com/variants.json
+          fi
+
+      - name: Run Commander Spellbook build
+        run: |
+          # Build spellbook artifacts
+          poetry run ccx build-spellbook
 
       - name: Commit and push changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add data/*.csv.gz data/manifest.json
-          git diff --staged --quiet || git commit -m "Nightly refresh: Update Scryfall data"
+          git add data/*.csv.gz data/manifest.json data/spellbook/jsonl/*.jsonl.gz data/spellbook/csv/*.csv.gz data/spellbook/markdown/*.md.gz data/spellbook/*.jsonl.gz 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "Nightly refresh: Update Scryfall and Spellbook data"
           git push
