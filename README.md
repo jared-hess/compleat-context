@@ -11,7 +11,9 @@ A Python 3.12 CLI tool for downloading and processing Magic: The Gathering card 
 - **Card Filtering**: Automatically filters out non-playable cards (tokens, emblems, art series)
 - **DFC Processing**: Merges double-faced card oracle text
 - **Data Optimization**: Trims to key fields and deduplicates by oracle_id
-- **Smart Splitting**: Automatically splits large files (>50MB) alphabetically (a-f, g-n, o-z)
+- **Multiple Output Formats**: Generates CSV, JSONL, and Markdown files
+- **Smart Splitting**: Splits files based on size (CSV: 50MB, JSONL/MD: 2M tokens or 512MB)
+- **Token Counting**: Uses tiktoken to ensure files stay within LLM context limits
 - **Automated Refresh**: Nightly GitHub Actions workflow to keep data current
 
 ## Installation
@@ -46,7 +48,7 @@ This command will:
 7. Deduplicate by oracle_id
 8. Convert arrays/objects to valid JSON strings for GPT compatibility
 9. Add GPT-friendly flat fields (colors_str, keywords_joined, legal_*, etc.)
-10. Write to `data/scryfall_oracle_trimmed.csv.gz` (or split files if >50MB)
+10. Write to multiple output formats (CSV, JSONL, Markdown) with intelligent splitting
 11. Generate `data/manifest.json` with build metadata
 
 ### Card Filtering
@@ -87,12 +89,38 @@ The build process downloads all card printings to compute cheapest, median, and 
 
 ### Output Files
 
+The build process generates three output formats with intelligent splitting based on file size and token count:
+
+#### CSV Files (gzip compressed)
+CSV files are written to the `data/` directory:
 - **Small datasets (<50MB)**: `data/scryfall_oracle_trimmed.csv.gz`
 - **Large datasets (>50MB)**: 
   - `data/scryfall_oracle_trimmed_a-f.csv.gz`
   - `data/scryfall_oracle_trimmed_g-n.csv.gz`
   - `data/scryfall_oracle_trimmed_o-z.csv.gz`
-- **Metadata**: `data/manifest.json`
+
+#### JSONL Files (gzip compressed)
+JSONL files are written to the `data/jsonl/` directory. Files are split when they exceed 2,000,000 tokens or 512MB:
+- `data/jsonl/scryfall_oracle_trimmed.jsonl.gz` (or `scryfall_oracle_trimmed_1.jsonl.gz`, `scryfall_oracle_trimmed_2.jsonl.gz`, etc. if split)
+
+Each line contains a complete card object as valid JSON.
+
+#### Markdown Files (gzip compressed)
+Markdown files are written to the `data/markdown/` directory. Files are split when they exceed 2,000,000 tokens or 512MB:
+- `data/markdown/scryfall_oracle_trimmed.md.gz` (or `scryfall_oracle_trimmed_1.md.gz`, `scryfall_oracle_trimmed_2.md.gz`, etc. if split)
+
+Cards are formatted with headers and field labels for easy reading.
+
+#### Uncompressed Output
+Use the `--no-compress` flag to generate uncompressed files (`.csv`, `.jsonl`, `.md` instead of `.csv.gz`, `.jsonl.gz`, `.md.gz`):
+```bash
+poetry run ccx build --no-compress
+```
+
+#### Metadata
+- `data/manifest.json` - Lists all generated files with build timestamp
+
+**Note:** Token counting uses tiktoken (cl100k_base encoding, same as GPT-4) to ensure files stay within LLM context limits.
 
 ## Development
 
@@ -135,7 +163,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - **Scryfall**: Card data provided by [Scryfall](https://scryfall.com/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - **Magic: The Gathering**: Card names, text, and artwork are property of Wizards of the Coast
-- Built with [Click](https://click.palletsprojects.com/), [Pandas](https://pandas.pydata.org/), and [Requests](https://requests.readthedocs.io/)
+- Built with [Click](https://click.palletsprojects.com/), [Pandas](https://pandas.pydata.org/), [Requests](https://requests.readthedocs.io/), and [tiktoken](https://github.com/openai/tiktoken)
 
 ## Disclaimer
 

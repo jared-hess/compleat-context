@@ -6,6 +6,11 @@ from unittest.mock import Mock
 
 def test_full_build_workflow_integration(mocker, tmp_path):  # type: ignore
     """Test the complete build workflow from download to output."""
+    # Mock tiktoken to avoid network calls
+    mock_encoding = Mock()
+    mock_encoding.encode.side_effect = lambda text: [0] * (len(text) // 4 + 1)
+    mocker.patch("tiktoken.get_encoding", return_value=mock_encoding)
+
     # Mock Scryfall API responses
     mock_bulk_response_oracle = {
         "data": [
@@ -132,10 +137,14 @@ def test_full_build_workflow_integration(mocker, tmp_path):  # type: ignore
     build.build()
 
     # Verify output files
-    output_file = tmp_path / "scryfall_oracle_trimmed.csv.gz"
+    csv_file = tmp_path / "scryfall_oracle_trimmed.csv.gz"
+    jsonl_file = tmp_path / "jsonl" / "scryfall_oracle_trimmed.jsonl.gz"
+    md_file = tmp_path / "markdown" / "scryfall_oracle_trimmed.md.gz"
     manifest_file = tmp_path / "manifest.json"
 
-    assert output_file.exists(), "Output CSV.GZ file should exist"
+    assert csv_file.exists(), "Output CSV.GZ file should exist"
+    assert jsonl_file.exists(), "Output JSONL.GZ file should exist"
+    assert md_file.exists(), "Output MD.GZ file should exist"
     assert manifest_file.exists(), "Manifest file should exist"
 
     # Verify manifest content
@@ -145,7 +154,7 @@ def test_full_build_workflow_integration(mocker, tmp_path):  # type: ignore
     assert "build_date" in manifest
     assert "files" in manifest
     assert "total_files" in manifest
-    assert manifest["total_files"] > 0
+    assert manifest["total_files"] == 3  # CSV, JSONL, MD
 
 
 def test_cli_help_command(mocker):  # type: ignore
