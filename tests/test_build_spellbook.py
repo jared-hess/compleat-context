@@ -9,13 +9,12 @@ from unittest.mock import Mock
 import pytest
 
 from ccx.commands.build_spellbook import (
-    build_spellbook,
+    _write_card_index,
+    _write_csv_files,
     open_json_file,
     parse_spellbook_combos,
-    write_combo_card_index,
-    write_combos_csv,
-    write_combos_jsonl,
-    write_combos_markdown,
+    write_jsonl_files,
+    write_markdown_files,
 )
 
 
@@ -229,11 +228,11 @@ def test_parse_spellbook_combos_filters_fields(sample_variants_json: Path) -> No
         assert set(feature.keys()) == {"name"}
 
 
-def test_write_combos_jsonl(
+def test_write_jsonl_files(
     normalized_combos: list[dict[str, Any]], tmp_path: Path
 ) -> None:
     """Test writing combos to JSONL."""
-    files = write_combos_jsonl(normalized_combos, tmp_path, compress=False)
+    files = write_jsonl_files(normalized_combos, tmp_path, compress=False)
 
     assert len(files) == 1
     assert files[0] == "combos.jsonl"
@@ -255,11 +254,11 @@ def test_write_combos_jsonl(
     assert combo2["id"] == "combo-2"
 
 
-def test_write_combos_jsonl_compressed(
+def test_write_jsonl_files_compressed(
     normalized_combos: list[dict[str, Any]], tmp_path: Path
 ) -> None:
     """Test writing compressed JSONL."""
-    files = write_combos_jsonl(normalized_combos, tmp_path, compress=True)
+    files = write_jsonl_files(normalized_combos, tmp_path, compress=True)
 
     assert len(files) == 1
     assert files[0] == "combos.jsonl.gz"
@@ -274,13 +273,14 @@ def test_write_combos_jsonl_compressed(
     assert len(lines) == 2
 
 
-def test_write_combos_csv(
+def test__write_csv_files(
     normalized_combos: list[dict[str, Any]], tmp_path: Path
 ) -> None:
     """Test writing combos to CSV."""
-    filename = write_combos_csv(normalized_combos, tmp_path, compress=False)
+    files = _write_csv_files(normalized_combos, tmp_path, compress=False)
 
-    assert filename == "combos.csv"
+    assert len(files) == 1
+    assert files[0] == "combos.csv"
 
     csv_file = tmp_path / "combos.csv"
     assert csv_file.exists()
@@ -315,13 +315,14 @@ def test_write_combos_csv(
     assert row2["card_count"] == 1
 
 
-def test_write_combo_card_index(
+def test__write_card_index(
     normalized_combos: list[dict[str, Any]], tmp_path: Path
 ) -> None:
     """Test writing combo card index."""
-    filename = write_combo_card_index(normalized_combos, tmp_path, compress=False)
+    files = _write_card_index(normalized_combos, tmp_path, compress=False)
 
-    assert filename == "combo_card_index.jsonl"
+    assert len(files) == 1
+    assert files[0] == "combo_card_index.jsonl"
 
     index_file = tmp_path / "combo_card_index.jsonl"
     assert index_file.exists()
@@ -347,11 +348,11 @@ def test_write_combo_card_index(
     assert "combo-2" in oracle_c["combo_ids"]
 
 
-def test_write_combos_markdown(
+def test_write_markdown_files(
     normalized_combos: list[dict[str, Any]], tmp_path: Path
 ) -> None:
     """Test writing combos to Markdown."""
-    files = write_combos_markdown(normalized_combos, tmp_path, compress=False)
+    files = write_markdown_files(normalized_combos, tmp_path, compress=False)
 
     assert len(files) == 1
     assert files[0] == "combos.md"
@@ -374,61 +375,6 @@ def test_write_combos_markdown(
     # Check combo 2 details
     assert "Card C" in content
     assert "You win the game" in content
-
-
-def test_build_spellbook_disabled(tmp_path: Path) -> None:
-    """Test that build_spellbook does nothing when disabled."""
-    # Should not raise any errors
-    build_spellbook(
-        src="nonexistent.json",
-        outdir=tmp_path,
-        enabled=False,
-        gzip_outputs=False,
-        split=False,
-    )
-
-    # Should not create any files
-    assert len(list(tmp_path.iterdir())) == 0
-
-
-def test_build_spellbook_with_local_file(
-    sample_variants_json: Path, tmp_path: Path
-) -> None:
-    """Test build_spellbook with local file."""
-    outdir = tmp_path / "output"
-
-    build_spellbook(
-        src=str(sample_variants_json),
-        outdir=outdir,
-        enabled=True,
-        gzip_outputs=False,
-        split=False,
-    )
-
-    # Check that output files were created in subdirectories
-    assert (outdir / "jsonl" / "combos.jsonl").exists()
-    assert (outdir / "csv" / "combos.csv").exists()
-    assert (outdir / "combo_card_index.jsonl").exists()  # Index at root
-    assert (outdir / "markdown" / "combos.md").exists()
-
-
-def test_build_spellbook_with_gzip(sample_variants_json: Path, tmp_path: Path) -> None:
-    """Test build_spellbook with gzip output."""
-    outdir = tmp_path / "output"
-
-    build_spellbook(
-        src=str(sample_variants_json),
-        outdir=outdir,
-        enabled=True,
-        gzip_outputs=True,
-        split=False,
-    )
-
-    # Check that gzipped files were created in subdirectories
-    assert (outdir / "jsonl" / "combos.jsonl.gz").exists()
-    assert (outdir / "csv" / "combos.csv.gz").exists()
-    assert (outdir / "combo_card_index.jsonl.gz").exists()  # Index at root
-    assert (outdir / "markdown" / "combos.md.gz").exists()
 
 
 def test_parse_spellbook_combos_handles_missing_fields(tmp_path: Path) -> None:

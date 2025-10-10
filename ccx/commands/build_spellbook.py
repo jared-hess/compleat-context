@@ -166,7 +166,7 @@ def parse_spellbook_combos(file_path: Path) -> Iterator[dict[str, Any]]:
             yield normalized
 
 
-def write_combos_jsonl(
+def write_jsonl_files(
     combos: list[dict[str, Any]], output_dir: Path, compress: bool = True
 ) -> list[str]:
     """Write combos to JSONL file(s), splitting if > 2M tokens or 512MB."""
@@ -250,9 +250,9 @@ def write_combos_jsonl(
     return written_files
 
 
-def write_combos_csv(
+def _write_csv_files(
     combos: list[dict[str, Any]], output_dir: Path, compress: bool = True
-) -> str:
+) -> list[str]:
     """Write combos to CSV with summary columns."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -309,12 +309,12 @@ def write_combos_csv(
         f"({output_path.stat().st_size / (1024 * 1024):.2f} MB)"
     )
 
-    return filename
+    return [filename]
 
 
-def write_combo_card_index(
+def _write_card_index(
     combos: list[dict[str, Any]], output_dir: Path, compress: bool = True
-) -> str:
+) -> list[str]:
     """Write combo_card_index.jsonl mapping oracleId to combo_ids."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -365,10 +365,10 @@ def write_combo_card_index(
         f"({output_path.stat().st_size / (1024 * 1024):.2f} MB)"
     )
 
-    return filename
+    return [filename]
 
 
-def write_combos_markdown(
+def write_markdown_files(
     combos: list[dict[str, Any]], output_dir: Path, compress: bool = True
 ) -> list[str]:
     """Write combos to Markdown file(s), splitting if > 2M tokens or 512MB."""
@@ -496,26 +496,45 @@ def write_combos_markdown(
     return written_files
 
 
-def build_spellbook(
-    src: str = SPELLBOOK_URL,
-    outdir: Path = DATA_DIR,
-    enabled: bool = True,
-    gzip_outputs: bool = True,
-    split: bool = True,
-) -> None:
-    """Build Commander Spellbook artifacts.
+def write_output_files(
+    combos: list[dict[str, Any]], output_dir: Path, compress: bool = True
+) -> list[str]:
+    """Write combos to CSV/GZ, JSONL/GZ, and MD/GZ files with appropriate splitting."""
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    Args:
-        src: URL or path to variants.json source
-        outdir: Output directory for artifacts
-        enabled: Master switch to enable/disable generation
-        gzip_outputs: Whether to gzip output files
-        split: Whether to split large files (honored via token limits)
-    """
-    if not enabled:
-        click.echo("Spellbook generation disabled")
-        return
+    all_written_files = []
 
+    # Write JSONL files to jsonl subdirectory
+    click.echo("Writing JSONL files...")
+    jsonl_dir = output_dir / "jsonl"
+    jsonl_files = write_jsonl_files(combos, jsonl_dir, compress=compress)
+    # Prepend directory to filenames
+    all_written_files.extend([f"jsonl/{f}" for f in jsonl_files])
+
+    # Write CSV files to csv subdirectory
+    click.echo("Writing CSV files...")
+    csv_dir = output_dir / "csv"
+    csv_files = _write_csv_files(combos, csv_dir, compress=compress)
+    # Prepend directory to filenames
+    all_written_files.extend([f"csv/{f}" for f in csv_files])
+
+    # Write card index to root of spellbook directory
+    click.echo("Writing card index...")
+    index_files = _write_card_index(combos, output_dir, compress=compress)
+    all_written_files.extend(index_files)
+
+    # Write Markdown files to markdown subdirectory
+    click.echo("Writing Markdown files...")
+    md_dir = output_dir / "markdown"
+    md_files = write_markdown_files(combos, md_dir, compress=compress)
+    # Prepend directory to filenames
+    all_written_files.extend([f"markdown/{f}" for f in md_files])
+
+    return all_written_files
+
+
+def build_spellbook(compress: bool = True) -> None:
+    """Download and process Commander Spellbook combo data."""
     click.echo("Starting Commander Spellbook build...")
 
     # Download/cache the source file
@@ -523,7 +542,7 @@ def build_spellbook(
     cache_path = cache_dir / "variants.json"
 
     try:
-        source_file = download_spellbook_data(src, cache_path)
+        source_file = download_spellbook_data(SPELLBOOK_URL, cache_path)
     except Exception as e:
         click.echo(f"Error downloading spellbook data: {e}", err=True)
         raise SystemExit(1)
@@ -541,37 +560,14 @@ def build_spellbook(
         click.echo("Warning: No combos found in source file", err=True)
         raise SystemExit(1)
 
-    # Write outputs
-    written_files = []
-
+    # Write output files
+    click.echo("Writing output files...")
     try:
-        # Write JSONL files to jsonl subdirectory
-        click.echo("Writing JSONL files...")
-        jsonl_dir = outdir / "jsonl"
-        jsonl_files = write_combos_jsonl(combos, jsonl_dir, compress=gzip_outputs)
-        written_files.extend([f"jsonl/{f}" for f in jsonl_files])
-
-        # Write CSV files to csv subdirectory
-        click.echo("Writing CSV file...")
-        csv_dir = outdir / "csv"
-        csv_file = write_combos_csv(combos, csv_dir, compress=gzip_outputs)
-        written_files.append(f"csv/{csv_file}")
-
-        # Write card index to root of spellbook directory
-        click.echo("Writing card index...")
-        index_file = write_combo_card_index(combos, outdir, compress=gzip_outputs)
-        written_files.append(index_file)
-
-        # Write Markdown files to markdown subdirectory
-        click.echo("Writing Markdown files...")
-        md_dir = outdir / "markdown"
-        md_files = write_combos_markdown(combos, md_dir, compress=gzip_outputs)
-        written_files.extend([f"markdown/{f}" for f in md_files])
-
-        click.echo(f"\nSpellbook build complete! Generated {len(written_files)} files:")
-        for filename in written_files:
-            click.echo(f"  - {filename}")
-
+        written_files = write_output_files(combos, DATA_DIR, compress=compress)
     except Exception as e:
         click.echo(f"Error writing output files: {e}", err=True)
         raise SystemExit(1)
+
+    click.echo(f"\nSpellbook build complete! Generated {len(written_files)} files:")
+    for filename in written_files:
+        click.echo(f"  - {filename}")

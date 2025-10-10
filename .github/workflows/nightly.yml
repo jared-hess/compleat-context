@@ -46,18 +46,8 @@ jobs:
 
       - name: Run Commander Spellbook build
         run: |
-          # Build spellbook artifacts if enabled
-          SPELLBOOK_ENABLED="${{ vars.SPELLBOOK_ENABLED || 'true' }}"
-          if [ "$SPELLBOOK_ENABLED" = "true" ]; then
-            poetry run ccx build-spellbook \
-              --src /tmp/spellbook_cache/variants.json \
-              --outdir data/spellbook \
-              --enable \
-              --gzip-outputs \
-              --split
-          else
-            echo "Spellbook build disabled via SPELLBOOK_ENABLED variable"
-          fi
+          # Build spellbook artifacts
+          poetry run ccx build-spellbook
 
       - name: Commit and push changes
         run: |

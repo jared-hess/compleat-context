@@ -71,14 +71,10 @@ This command will:
    - **combo_card_index.jsonl** - Reverse index mapping oracle IDs to combo IDs (at root)
    - **markdown/combos.md** - Human-readable markdown with formatted combo descriptions
 
-**Command Options:**
+#### Uncompressed Output
+Use the `--no-compress` flag to generate uncompressed files (`.jsonl`, `.csv`, `.md` instead of `.jsonl.gz`, `.csv.gz`, `.md.gz`):
 ```bash
-poetry run ccx build-spellbook \
-  --src <url-or-path>           # Source file (default: Commander Spellbook API)
-  --outdir <directory>          # Output directory (default: data/spellbook)
-  --enable/--disable            # Master switch (default: --enable)
-  --gzip-outputs                # Write gzip compressed files (default: off)
-  --split                       # Split large files by token limits (default: on)
+poetry run ccx build-spellbook --no-compress
 ```
 
 **Combo Fields Kept:**
