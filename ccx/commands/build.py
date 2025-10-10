@@ -563,15 +563,19 @@ def write_output_files(
     csv_files = _write_csv_files(cards, output_dir, compress=compress)
     all_written_files.extend(csv_files)
 
-    # Write JSONL files
+    # Write JSONL files to jsonl subdirectory
     click.echo("Writing JSONL files...")
-    jsonl_files = write_jsonl_files(cards, output_dir, compress=compress)
-    all_written_files.extend(jsonl_files)
+    jsonl_dir = output_dir / "jsonl"
+    jsonl_files = write_jsonl_files(cards, jsonl_dir, compress=compress)
+    # Prepend directory to filenames
+    all_written_files.extend([f"jsonl/{f}" for f in jsonl_files])
 
-    # Write Markdown files
+    # Write Markdown files to markdown subdirectory
     click.echo("Writing Markdown files...")
-    md_files = write_markdown_files(cards, output_dir, compress=compress)
-    all_written_files.extend(md_files)
+    md_dir = output_dir / "markdown"
+    md_files = write_markdown_files(cards, md_dir, compress=compress)
+    # Prepend directory to filenames
+    all_written_files.extend([f"markdown/{f}" for f in md_files])
 
     return all_written_files
 

@@ -138,8 +138,8 @@ def test_full_build_workflow_integration(mocker, tmp_path):  # type: ignore
 
     # Verify output files
     csv_file = tmp_path / "scryfall_oracle_trimmed.csv.gz"
-    jsonl_file = tmp_path / "scryfall_oracle_trimmed.jsonl.gz"
-    md_file = tmp_path / "scryfall_oracle_trimmed.md.gz"
+    jsonl_file = tmp_path / "jsonl" / "scryfall_oracle_trimmed.jsonl.gz"
+    md_file = tmp_path / "markdown" / "scryfall_oracle_trimmed.md.gz"
     manifest_file = tmp_path / "manifest.json"
 
     assert csv_file.exists(), "Output CSV.GZ file should exist"

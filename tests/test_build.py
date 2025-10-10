@@ -980,10 +980,10 @@ def test_write_output_files_all_formats(
     # Should have CSV, JSONL, and Markdown files
     assert len(files) == 3
 
-    # Check for each format
-    csv_files = [f for f in files if f.endswith(".csv.gz")]
-    jsonl_files = [f for f in files if f.endswith(".jsonl.gz")]
-    md_files = [f for f in files if f.endswith(".md.gz")]
+    # Check for each format - files now include directory paths
+    csv_files = [f for f in files if f.endswith(".csv.gz") and not "/" in f]
+    jsonl_files = [f for f in files if "jsonl/" in f and f.endswith(".jsonl.gz")]
+    md_files = [f for f in files if "markdown/" in f and f.endswith(".md.gz")]
 
     assert len(csv_files) == 1
     assert len(jsonl_files) == 1
@@ -1096,10 +1096,10 @@ def test_write_output_files_uncompressed(
     # Should have CSV, JSONL, and Markdown files
     assert len(files) == 3
 
-    # Check for each format (uncompressed)
-    csv_files = [f for f in files if f.endswith(".csv")]
-    jsonl_files = [f for f in files if f.endswith(".jsonl")]
-    md_files = [f for f in files if f.endswith(".md")]
+    # Check for each format (uncompressed) - files now include directory paths
+    csv_files = [f for f in files if f.endswith(".csv") and not "/" in f]
+    jsonl_files = [f for f in files if "jsonl/" in f and f.endswith(".jsonl")]
+    md_files = [f for f in files if "markdown/" in f and f.endswith(".md")]
 
     assert len(csv_files) == 1
     assert len(jsonl_files) == 1
