@@ -10,11 +10,17 @@ def cli() -> None:
 
 
 @cli.command()
-def build() -> None:
+@click.option(
+    "--no-compress",
+    is_flag=True,
+    default=False,
+    help="Generate uncompressed output files instead of gzip compressed files.",
+)
+def build(no_compress: bool) -> None:
     """Download and process Scryfall oracle cards data."""
     from ccx.commands.build import build as run_build
 
-    run_build()
+    run_build(compress=not no_compress)
 
 
 def main() -> None:

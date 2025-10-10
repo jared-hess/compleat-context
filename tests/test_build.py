@@ -1012,3 +1012,100 @@ def test_write_csv_files_single_file(
 
     assert len(df) == 2
     assert "name" in df.columns
+
+
+def test_write_csv_files_uncompressed(
+    sample_cards: list[dict[str, Any]], tmp_path: Path
+) -> None:
+    """Test _write_csv_files with uncompressed output."""
+    files = _write_csv_files(sample_cards, tmp_path, compress=False)
+
+    assert len(files) == 1
+    assert files[0] == "scryfall_oracle_trimmed.csv"
+
+    # Verify the file was created and can be read
+    output_file = tmp_path / "scryfall_oracle_trimmed.csv"
+    assert output_file.exists()
+
+    df = pd.read_csv(output_file)
+
+    assert len(df) == 2
+    assert "name" in df.columns
+
+
+def test_write_jsonl_files_uncompressed(
+    sample_cards: list[dict[str, Any]], tmp_path: Path
+) -> None:
+    """Test writing JSONL output uncompressed."""
+    trimmed = trim_and_dedupe_cards(sample_cards)
+    files = write_jsonl_files(trimmed, tmp_path, compress=False)
+
+    assert len(files) == 1
+    assert files[0] == "scryfall_oracle_trimmed.jsonl"
+
+    # Verify the file was created and can be read
+    output_file = tmp_path / "scryfall_oracle_trimmed.jsonl"
+    assert output_file.exists()
+
+    with open(output_file, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    # Should have 2 cards
+    assert len(lines) == 2
+
+    # Each line should be valid JSON
+    for line in lines:
+        card = json.loads(line)
+        assert "name" in card
+        assert "oracle_id" in card
+
+
+def test_write_markdown_files_uncompressed(
+    sample_cards: list[dict[str, Any]], tmp_path: Path
+) -> None:
+    """Test writing markdown output uncompressed."""
+    trimmed = trim_and_dedupe_cards(sample_cards)
+    files = write_markdown_files(trimmed, tmp_path, compress=False)
+
+    assert len(files) == 1
+    assert files[0] == "scryfall_oracle_trimmed.md"
+
+    # Verify the file was created and can be read
+    output_file = tmp_path / "scryfall_oracle_trimmed.md"
+    assert output_file.exists()
+
+    with open(output_file, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Check that content contains card names
+    assert "Lightning Bolt" in content
+    assert "Black Lotus" in content
+    # Check markdown formatting
+    assert "##" in content
+    assert "**" in content
+    assert "---" in content
+
+
+def test_write_output_files_uncompressed(
+    sample_cards: list[dict[str, Any]], tmp_path: Path
+) -> None:
+    """Test that write_output_files creates all three formats uncompressed."""
+    trimmed = trim_and_dedupe_cards(sample_cards)
+    files = write_output_files(trimmed, tmp_path, compress=False)
+
+    # Should have CSV, JSONL, and Markdown files
+    assert len(files) == 3
+
+    # Check for each format (uncompressed)
+    csv_files = [f for f in files if f.endswith(".csv")]
+    jsonl_files = [f for f in files if f.endswith(".jsonl")]
+    md_files = [f for f in files if f.endswith(".md")]
+
+    assert len(csv_files) == 1
+    assert len(jsonl_files) == 1
+    assert len(md_files) == 1
+
+    # Verify all files exist and are uncompressed
+    for filename in files:
+        assert (tmp_path / filename).exists()
+        assert not filename.endswith(".gz")

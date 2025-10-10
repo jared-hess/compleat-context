@@ -363,7 +363,9 @@ def count_tokens(text: str) -> int:
     return len(encoding.encode(text))
 
 
-def write_markdown_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str]:
+def write_markdown_files(
+    cards: list[dict[str, Any]], output_dir: Path, compress: bool = True
+) -> list[str]:
     """Write cards to Markdown files, splitting if > 2M tokens or 512MB."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -377,6 +379,8 @@ def write_markdown_files(cards: list[dict[str, Any]], output_dir: Path) -> list[
     current_cards: list[str] = []
     current_tokens = 0
     current_size_bytes = 0
+
+    file_ext = ".md.gz" if compress else ".md"
 
     for _, row in df.iterrows():
         # Format card as markdown
@@ -399,14 +403,18 @@ def write_markdown_files(cards: list[dict[str, Any]], output_dir: Path) -> list[
         ):
             # Write current batch
             filename = (
-                f"scryfall_oracle_trimmed_{current_file_index}.md.gz"
+                f"scryfall_oracle_trimmed_{current_file_index}{file_ext}"
                 if current_file_index > 1
-                else "scryfall_oracle_trimmed.md.gz"
+                else f"scryfall_oracle_trimmed{file_ext}"
             )
             output_path = output_dir / filename
 
-            with gzip.open(output_path, "wt", encoding="utf-8") as f:
-                f.write("".join(current_cards))
+            if compress:
+                with gzip.open(output_path, "wt", encoding="utf-8") as f:
+                    f.write("".join(current_cards))
+            else:
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.write("".join(current_cards))
 
             click.echo(
                 f"Wrote {len(current_cards)} cards to {filename} "
@@ -428,14 +436,18 @@ def write_markdown_files(cards: list[dict[str, Any]], output_dir: Path) -> list[
     # Write remaining cards
     if current_cards:
         filename = (
-            f"scryfall_oracle_trimmed_{current_file_index}.md.gz"
+            f"scryfall_oracle_trimmed_{current_file_index}{file_ext}"
             if current_file_index > 1
-            else "scryfall_oracle_trimmed.md.gz"
+            else f"scryfall_oracle_trimmed{file_ext}"
         )
         output_path = output_dir / filename
 
-        with gzip.open(output_path, "wt", encoding="utf-8") as f:
-            f.write("".join(current_cards))
+        if compress:
+            with gzip.open(output_path, "wt", encoding="utf-8") as f:
+                f.write("".join(current_cards))
+        else:
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write("".join(current_cards))
 
         click.echo(
             f"Wrote {len(current_cards)} cards to {filename} "
@@ -447,7 +459,9 @@ def write_markdown_files(cards: list[dict[str, Any]], output_dir: Path) -> list[
     return written_files
 
 
-def write_jsonl_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str]:
+def write_jsonl_files(
+    cards: list[dict[str, Any]], output_dir: Path, compress: bool = True
+) -> list[str]:
     """Write cards to JSONL files, splitting if > 2M tokens or 512MB."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -461,6 +475,8 @@ def write_jsonl_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str
     current_lines: list[str] = []
     current_tokens = 0
     current_size_bytes = 0
+
+    file_ext = ".jsonl.gz" if compress else ".jsonl"
 
     for _, row in df.iterrows():
         # Convert row to dict and then to JSON line
@@ -478,14 +494,18 @@ def write_jsonl_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str
         ):
             # Write current batch
             filename = (
-                f"scryfall_oracle_trimmed_{current_file_index}.jsonl.gz"
+                f"scryfall_oracle_trimmed_{current_file_index}{file_ext}"
                 if current_file_index > 1
-                else "scryfall_oracle_trimmed.jsonl.gz"
+                else f"scryfall_oracle_trimmed{file_ext}"
             )
             output_path = output_dir / filename
 
-            with gzip.open(output_path, "wt", encoding="utf-8") as f:
-                f.writelines(current_lines)
+            if compress:
+                with gzip.open(output_path, "wt", encoding="utf-8") as f:
+                    f.writelines(current_lines)
+            else:
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.writelines(current_lines)
 
             click.echo(
                 f"Wrote {len(current_lines)} cards to {filename} "
@@ -507,14 +527,18 @@ def write_jsonl_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str
     # Write remaining cards
     if current_lines:
         filename = (
-            f"scryfall_oracle_trimmed_{current_file_index}.jsonl.gz"
+            f"scryfall_oracle_trimmed_{current_file_index}{file_ext}"
             if current_file_index > 1
-            else "scryfall_oracle_trimmed.jsonl.gz"
+            else f"scryfall_oracle_trimmed{file_ext}"
         )
         output_path = output_dir / filename
 
-        with gzip.open(output_path, "wt", encoding="utf-8") as f:
-            f.writelines(current_lines)
+        if compress:
+            with gzip.open(output_path, "wt", encoding="utf-8") as f:
+                f.writelines(current_lines)
+        else:
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.writelines(current_lines)
 
         click.echo(
             f"Wrote {len(current_lines)} cards to {filename} "
@@ -526,7 +550,9 @@ def write_jsonl_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str
     return written_files
 
 
-def write_output_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str]:
+def write_output_files(
+    cards: list[dict[str, Any]], output_dir: Path, compress: bool = True
+) -> list[str]:
     """Write cards to CSV/GZ, JSONL/GZ, and MD/GZ files with appropriate splitting."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -534,24 +560,26 @@ def write_output_files(cards: list[dict[str, Any]], output_dir: Path) -> list[st
 
     # Write CSV files (existing logic)
     click.echo("Writing CSV files...")
-    csv_files = _write_csv_files(cards, output_dir)
+    csv_files = _write_csv_files(cards, output_dir, compress=compress)
     all_written_files.extend(csv_files)
 
     # Write JSONL files
     click.echo("Writing JSONL files...")
-    jsonl_files = write_jsonl_files(cards, output_dir)
+    jsonl_files = write_jsonl_files(cards, output_dir, compress=compress)
     all_written_files.extend(jsonl_files)
 
     # Write Markdown files
     click.echo("Writing Markdown files...")
-    md_files = write_markdown_files(cards, output_dir)
+    md_files = write_markdown_files(cards, output_dir, compress=compress)
     all_written_files.extend(md_files)
 
     return all_written_files
 
 
-def _write_csv_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str]:
-    """Write cards to CSV/GZ files, splitting alphabetically if > 50MB."""
+def _write_csv_files(
+    cards: list[dict[str, Any]], output_dir: Path, compress: bool = True
+) -> list[str]:
+    """Write cards to CSV files, splitting alphabetically if > 50MB."""
     # Convert to DataFrame
     df = pd.DataFrame(cards)
 
@@ -560,7 +588,7 @@ def _write_csv_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str]
         df = df.sort_values("name")
 
     # Write to a temporary file to check size
-    temp_file = output_dir / "scryfall_oracle_trimmed.csv"
+    temp_file = output_dir / "scryfall_oracle_trimmed_temp.csv"
     df.to_csv(temp_file, index=False)
 
     file_size_mb = temp_file.stat().st_size / (1024 * 1024)
@@ -573,10 +601,11 @@ def _write_csv_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str]
         click.echo(f"File size exceeds {MAX_FILE_SIZE_MB} MB, splitting...")
 
         # Define alphabetical ranges
+        file_ext = ".csv.gz" if compress else ".csv"
         ranges = [
-            ("a", "f", "scryfall_oracle_trimmed_a-f.csv.gz"),
-            ("g", "n", "scryfall_oracle_trimmed_g-n.csv.gz"),
-            ("o", "z", "scryfall_oracle_trimmed_o-z.csv.gz"),
+            ("a", "f", f"scryfall_oracle_trimmed_a-f{file_ext}"),
+            ("g", "n", f"scryfall_oracle_trimmed_g-n{file_ext}"),
+            ("o", "z", f"scryfall_oracle_trimmed_o-z{file_ext}"),
         ]
 
         for start, end, filename in ranges:
@@ -586,31 +615,37 @@ def _write_csv_files(cards: list[dict[str, Any]], output_dir: Path) -> list[str]
 
             if len(subset_df) > 0:
                 output_path = output_dir / filename
-                with gzip.open(output_path, "wt", encoding="utf-8") as f:
-                    subset_df.to_csv(f, index=False)
+                if compress:
+                    with gzip.open(output_path, "wt", encoding="utf-8") as f:
+                        subset_df.to_csv(f, index=False)
+                else:
+                    subset_df.to_csv(output_path, index=False)
                 click.echo(
                     f"Wrote {len(subset_df)} cards to {filename} "
                     f"({output_path.stat().st_size / (1024 * 1024):.2f} MB)"
                 )
                 written_files.append(filename)
 
-        # Remove the temporary uncompressed file
+        # Remove the temporary file
         temp_file.unlink()
     else:
-        # Write as a single compressed file
-        output_file = output_dir / "scryfall_oracle_trimmed.csv.gz"
-        with gzip.open(output_file, "wt", encoding="utf-8") as f:
-            df.to_csv(f, index=False)
+        # Write as a single file
+        file_ext = ".csv.gz" if compress else ".csv"
+        output_file = output_dir / f"scryfall_oracle_trimmed{file_ext}"
+        if compress:
+            with gzip.open(output_file, "wt", encoding="utf-8") as f:
+                df.to_csv(f, index=False)
+        else:
+            df.to_csv(output_file, index=False)
 
         click.echo(
-            f"Wrote {len(df)} cards to scryfall_oracle_trimmed.csv.gz "
+            f"Wrote {len(df)} cards to scryfall_oracle_trimmed{file_ext} "
             f"({output_file.stat().st_size / (1024 * 1024):.2f} MB)"
         )
-        written_files.append("scryfall_oracle_trimmed.csv.gz")
+        written_files.append(f"scryfall_oracle_trimmed{file_ext}")
 
-        # Remove the temporary uncompressed file if it exists
-        if temp_file.exists():
-            temp_file.unlink()
+        # Remove the temporary file
+        temp_file.unlink()
 
     return written_files
 
@@ -631,7 +666,7 @@ def write_manifest(files: list[str], output_dir: Path) -> None:
     click.echo(f"Wrote manifest to {manifest_path}")
 
 
-def build() -> None:
+def build(compress: bool = True) -> None:
     """Download and process Scryfall oracle cards data."""
     click.echo("Starting build process...")
 
@@ -667,7 +702,7 @@ def build() -> None:
 
     # Write output files
     click.echo("Writing output files...")
-    written_files = write_output_files(cards, DATA_DIR)
+    written_files = write_output_files(cards, DATA_DIR, compress=compress)
 
     # Write manifest
     write_manifest(written_files, DATA_DIR)
