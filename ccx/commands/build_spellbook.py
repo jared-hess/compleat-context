@@ -66,10 +66,27 @@ def download_spellbook_data(src: str, cache_path: Path, force: bool = False) -> 
     response = requests.get(src, stream=True, timeout=60)
     response.raise_for_status()
 
-    # Write to cache with streaming to avoid loading into memory
+    # Get total file size for progress bar
+    total_size = int(response.headers.get("content-length", 0))
+
+    # Write to cache with streaming and progress bar
     with open(cache_path, "wb") as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
+        if total_size > 0:
+            with click.progressbar(
+                length=total_size,
+                label="Downloading",
+                show_eta=True,
+                show_percent=True,
+            ) as bar:
+                downloaded = 0
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    bar.update(len(chunk))
+        else:
+            # Fallback if content-length is not available
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
 
     file_size_mb = cache_path.stat().st_size / (1024 * 1024)
     click.echo(f"Downloaded {file_size_mb:.2f} MB to {cache_path}")
@@ -91,8 +108,8 @@ def parse_spellbook_combos(file_path: Path) -> Iterator[dict[str, Any]]:
     Yields normalized combo dictionaries with only the fields we want to keep.
     """
     with open_json_file(file_path) as f:
-        # Parse the top-level array items
-        combos = ijson.items(f, "item")
+        # Parse the variants array items from the top-level object
+        combos = ijson.items(f, "variants.item")
 
         for combo in combos:
             # Normalize the combo, keeping only specified fields

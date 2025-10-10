@@ -96,7 +96,8 @@ def sample_variants_json(tmp_path: Path, sample_combos: list[dict[str, Any]]) ->
     """Create a sample variants.json file for testing."""
     json_file = tmp_path / "variants.json"
     with open(json_file, "w") as f:
-        json.dump(sample_combos, f)
+        # Wrap in the actual API structure
+        json.dump({"variants": sample_combos}, f)
     return json_file
 
 
@@ -432,18 +433,20 @@ def test_build_spellbook_with_gzip(sample_variants_json: Path, tmp_path: Path) -
 
 def test_parse_spellbook_combos_handles_missing_fields(tmp_path: Path) -> None:
     """Test parsing combos with missing optional fields."""
-    # Create a minimal combo
-    minimal_combos = [
-        {
-            "id": "minimal",
-            "uses": [{"card": {"name": "Some Card"}}],
-            "produces": [{"feature": {"name": "Some Effect"}}],
-        }
-    ]
+    # Create a minimal combo with the correct API structure
+    minimal_data = {
+        "variants": [
+            {
+                "id": "minimal",
+                "uses": [{"card": {"name": "Some Card"}}],
+                "produces": [{"feature": {"name": "Some Effect"}}],
+            }
+        ]
+    }
 
     json_file = tmp_path / "minimal.json"
     with open(json_file, "w") as f:
-        json.dump(minimal_combos, f)
+        json.dump(minimal_data, f)
 
     combos = list(parse_spellbook_combos(json_file))
 
@@ -456,25 +459,27 @@ def test_parse_spellbook_combos_handles_missing_fields(tmp_path: Path) -> None:
 
 def test_parse_spellbook_combos_filters_invalid_cards(tmp_path: Path) -> None:
     """Test that cards without required fields are filtered."""
-    combos_with_invalid = [
-        {
-            "id": "test",
-            "uses": [
-                {"card": {"name": "Valid Card", "oracleId": "valid"}},
-                {},  # Invalid - no card field
-                {"card": {}},  # Invalid - empty card
-            ],
-            "produces": [
-                {"feature": {"name": "Effect"}},
-                {},  # Invalid - no feature field
-                {"feature": {}},  # Invalid - empty feature
-            ],
-        }
-    ]
+    combos_data = {
+        "variants": [
+            {
+                "id": "test",
+                "uses": [
+                    {"card": {"name": "Valid Card", "oracleId": "valid"}},
+                    {},  # Invalid - no card field
+                    {"card": {}},  # Invalid - empty card
+                ],
+                "produces": [
+                    {"feature": {"name": "Effect"}},
+                    {},  # Invalid - no feature field
+                    {"feature": {}},  # Invalid - empty feature
+                ],
+            }
+        ]
+    }
 
     json_file = tmp_path / "invalid.json"
     with open(json_file, "w") as f:
-        json.dump(combos_with_invalid, f)
+        json.dump(combos_data, f)
 
     combos = list(parse_spellbook_combos(json_file))
 
