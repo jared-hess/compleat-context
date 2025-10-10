@@ -981,7 +981,7 @@ def test_write_output_files_all_formats(
     assert len(files) == 3
 
     # Check for each format - files now include directory paths
-    csv_files = [f for f in files if f.endswith(".csv.gz") and not "/" in f]
+    csv_files = [f for f in files if f.endswith(".csv.gz") and "/" not in f]
     jsonl_files = [f for f in files if "jsonl/" in f and f.endswith(".jsonl.gz")]
     md_files = [f for f in files if "markdown/" in f and f.endswith(".md.gz")]
 
@@ -1047,7 +1047,7 @@ def test_write_jsonl_files_uncompressed(
     output_file = tmp_path / "scryfall_oracle_trimmed.jsonl"
     assert output_file.exists()
 
-    with open(output_file, "r", encoding="utf-8") as f:
+    with open(output_file, encoding="utf-8") as f:
         lines = f.readlines()
 
     # Should have 2 cards
@@ -1074,7 +1074,7 @@ def test_write_markdown_files_uncompressed(
     output_file = tmp_path / "scryfall_oracle_trimmed.md"
     assert output_file.exists()
 
-    with open(output_file, "r", encoding="utf-8") as f:
+    with open(output_file, encoding="utf-8") as f:
         content = f.read()
 
     # Check that content contains card names
@@ -1097,7 +1097,7 @@ def test_write_output_files_uncompressed(
     assert len(files) == 3
 
     # Check for each format (uncompressed) - files now include directory paths
-    csv_files = [f for f in files if f.endswith(".csv") and not "/" in f]
+    csv_files = [f for f in files if f.endswith(".csv") and "/" not in f]
     jsonl_files = [f for f in files if "jsonl/" in f and f.endswith(".jsonl")]
     md_files = [f for f in files if "markdown/" in f and f.endswith(".md")]
 

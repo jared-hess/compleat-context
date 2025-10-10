@@ -23,6 +23,51 @@ def build(no_compress: bool) -> None:
     run_build(compress=not no_compress)
 
 
+@cli.command()
+@click.option(
+    "--src",
+    default="https://json.commanderspellbook.com/variants.json",
+    help="URL or path to variants.json source file.",
+)
+@click.option(
+    "--outdir",
+    default="data/spellbook",
+    help="Output directory for spellbook artifacts.",
+)
+@click.option(
+    "--enable/--disable",
+    default=True,
+    help="Master switch to enable/disable spellbook generation.",
+)
+@click.option(
+    "--gzip-outputs",
+    is_flag=True,
+    default=False,
+    help="Write gzip compressed output files.",
+)
+@click.option(
+    "--split",
+    is_flag=True,
+    default=True,
+    help="Split large files based on token limits.",
+)
+def build_spellbook(
+    src: str, outdir: str, enable: bool, gzip_outputs: bool, split: bool
+) -> None:
+    """Download and process Commander Spellbook combo data."""
+    from pathlib import Path
+
+    from ccx.commands.build_spellbook import build_spellbook as run_build_spellbook
+
+    run_build_spellbook(
+        src=src,
+        outdir=Path(outdir),
+        enabled=enable,
+        gzip_outputs=gzip_outputs,
+        split=split,
+    )
+
+
 def main() -> None:
     """Main entry point."""
     cli()
