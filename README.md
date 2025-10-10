@@ -8,11 +8,13 @@ A Python 3.12 CLI tool for downloading and processing Magic: The Gathering card 
 
 - **Click CLI**: Command-line interface built with [Click](https://click.palletsprojects.com/)
 - **Scryfall Integration**: Downloads oracle card data from [Scryfall](https://scryfall.com/)
+- **Commander Spellbook Integration**: Downloads and processes combo data from [Commander Spellbook](https://commanderspellbook.com/)
 - **Card Filtering**: Automatically filters out non-playable cards (tokens, emblems, art series)
 - **DFC Processing**: Merges double-faced card oracle text
 - **Data Optimization**: Trims to key fields and deduplicates by oracle_id
 - **Multiple Output Formats**: Generates CSV, JSONL, and Markdown files
 - **Smart Splitting**: Splits files based on size (CSV: 50MB, JSONL/MD: 2M tokens or 512MB)
+- **Streaming Parser**: Uses ijson for memory-efficient processing of large JSON files
 - **Token Counting**: Uses tiktoken to ensure files stay within LLM context limits
 - **Automated Refresh**: Nightly GitHub Actions workflow to keep data current
 
@@ -50,6 +52,42 @@ This command will:
 9. Add GPT-friendly flat fields (colors_str, keywords_joined, legal_*, etc.)
 10. Write to multiple output formats (CSV, JSONL, Markdown) with intelligent splitting
 11. Generate `data/manifest.json` with build metadata
+
+### Commander Spellbook Build Command
+
+Download and process Commander Spellbook combo data:
+
+```bash
+poetry run ccx build-spellbook
+```
+
+This command will:
+1. Download the variants.json file from [Commander Spellbook API](https://json.commanderspellbook.com/variants.json) (~300MB)
+2. Stream-parse the JSON using ijson (memory-efficient, never loads full file)
+3. Normalize and filter combos to keep only essential fields
+4. Generate four output file types in `data/spellbook/`:
+   - **combos.jsonl** - One JSON object per line with full combo details
+   - **combos.csv** - Summary table (id, identity, features, cards, mana costs, popularity)
+   - **combo_card_index.jsonl** - Reverse index mapping oracle IDs to combo IDs
+   - **combos.md** - Human-readable markdown with formatted combo descriptions
+
+**Command Options:**
+```bash
+poetry run ccx build-spellbook \
+  --src <url-or-path>           # Source file (default: Commander Spellbook API)
+  --outdir <directory>          # Output directory (default: data/spellbook)
+  --enable/--disable            # Master switch (default: --enable)
+  --gzip-outputs                # Write gzip compressed files (default: off)
+  --split                       # Split large files by token limits (default: on)
+```
+
+**Combo Fields Kept:**
+- Top-level: id, status, identity, manaNeeded, manaValueNeeded, description, notes, popularity, bracketTag, legalities, prices, variantCount
+- uses[]: card.name, card.oracleId, card.typeLine
+- produces[]: feature.name
+- Optional: requires, includes
+
+Files are automatically split when they exceed 2M tokens or 512MB, using the same chunking system as Scryfall exports.
 
 ### Card Filtering
 
@@ -119,6 +157,7 @@ poetry run ccx build --no-compress
 
 #### Metadata
 - `data/manifest.json` - Lists all generated files with build timestamp
+- `data/spellbook/` - Commander Spellbook combo artifacts (combos.jsonl, combos.csv, combo_card_index.jsonl, combos.md)
 
 **Note:** Token counting uses tiktoken (cl100k_base encoding, same as GPT-4) to ensure files stay within LLM context limits.
 
@@ -153,7 +192,9 @@ poetry run pytest -v
 
 GitHub Actions workflows:
 - **CI** (`ci.yml`): Runs on push/PR - lint, format check, type check, and tests
-- **Nightly Refresh** (`nightly.yml`): Runs daily at 2 AM UTC - updates data files and commits changes
+- **Nightly Refresh** (`nightly.yml`): Runs daily at 2 AM UTC - updates Scryfall and Commander Spellbook data, commits changes
+
+The nightly workflow can be controlled with the `SPELLBOOK_ENABLED` repository variable (set to `"true"` or `"false"`).
 
 ## License
 
@@ -162,9 +203,10 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Credits
 
 - **Scryfall**: Card data provided by [Scryfall](https://scryfall.com/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- **Commander Spellbook**: Combo data provided by [Commander Spellbook](https://commanderspellbook.com/)
 - **Magic: The Gathering**: Card names, text, and artwork are property of Wizards of the Coast
-- Built with [Click](https://click.palletsprojects.com/), [Pandas](https://pandas.pydata.org/), [Requests](https://requests.readthedocs.io/), and [tiktoken](https://github.com/openai/tiktoken)
+- Built with [Click](https://click.palletsprojects.com/), [Pandas](https://pandas.pydata.org/), [Requests](https://requests.readthedocs.io/), [ijson](https://github.com/ICRAR/ijson), and [tiktoken](https://github.com/openai/tiktoken)
 
 ## Disclaimer
 
-This project is not affiliated with or endorsed by Wizards of the Coast or Scryfall.
+This project is not affiliated with or endorsed by Wizards of the Coast, Scryfall, or Commander Spellbook.
