@@ -545,25 +545,28 @@ def build_spellbook(
     written_files = []
 
     try:
-        # Write JSONL
+        # Write JSONL files to jsonl subdirectory
         click.echo("Writing JSONL files...")
-        jsonl_files = write_combos_jsonl(combos, outdir, compress=gzip_outputs)
-        written_files.extend(jsonl_files)
+        jsonl_dir = outdir / "jsonl"
+        jsonl_files = write_combos_jsonl(combos, jsonl_dir, compress=gzip_outputs)
+        written_files.extend([f"jsonl/{f}" for f in jsonl_files])
 
-        # Write CSV
+        # Write CSV files to csv subdirectory
         click.echo("Writing CSV file...")
-        csv_file = write_combos_csv(combos, outdir, compress=gzip_outputs)
-        written_files.append(csv_file)
+        csv_dir = outdir / "csv"
+        csv_file = write_combos_csv(combos, csv_dir, compress=gzip_outputs)
+        written_files.append(f"csv/{csv_file}")
 
-        # Write card index
+        # Write card index to root of spellbook directory
         click.echo("Writing card index...")
         index_file = write_combo_card_index(combos, outdir, compress=gzip_outputs)
         written_files.append(index_file)
 
-        # Write Markdown
+        # Write Markdown files to markdown subdirectory
         click.echo("Writing Markdown files...")
-        md_files = write_combos_markdown(combos, outdir, compress=gzip_outputs)
-        written_files.extend(md_files)
+        md_dir = outdir / "markdown"
+        md_files = write_combos_markdown(combos, md_dir, compress=gzip_outputs)
+        written_files.extend([f"markdown/{f}" for f in md_files])
 
         click.echo(f"\nSpellbook build complete! Generated {len(written_files)} files:")
         for filename in written_files:

@@ -66,10 +66,10 @@ This command will:
 2. Stream-parse the JSON using ijson (memory-efficient, never loads full file)
 3. Normalize and filter combos to keep only essential fields
 4. Generate four output file types in `data/spellbook/`:
-   - **combos.jsonl** - One JSON object per line with full combo details
-   - **combos.csv** - Summary table (id, identity, features, cards, mana costs, popularity)
-   - **combo_card_index.jsonl** - Reverse index mapping oracle IDs to combo IDs
-   - **combos.md** - Human-readable markdown with formatted combo descriptions
+   - **jsonl/combos.jsonl** - One JSON object per line with full combo details
+   - **csv/combos.csv** - Summary table (id, identity, features, cards, mana costs, popularity)
+   - **combo_card_index.jsonl** - Reverse index mapping oracle IDs to combo IDs (at root)
+   - **markdown/combos.md** - Human-readable markdown with formatted combo descriptions
 
 **Command Options:**
 ```bash
@@ -157,7 +157,11 @@ poetry run ccx build --no-compress
 
 #### Metadata
 - `data/manifest.json` - Lists all generated files with build timestamp
-- `data/spellbook/` - Commander Spellbook combo artifacts (combos.jsonl, combos.csv, combo_card_index.jsonl, combos.md)
+- `data/spellbook/` - Commander Spellbook combo artifacts
+  - `jsonl/combos.jsonl` - JSONL format combos
+  - `csv/combos.csv` - CSV summary table
+  - `combo_card_index.jsonl` - Oracle ID to combo ID index
+  - `markdown/combos.md` - Human-readable markdown
 
 **Note:** Token counting uses tiktoken (cl100k_base encoding, same as GPT-4) to ensure files stay within LLM context limits.
 

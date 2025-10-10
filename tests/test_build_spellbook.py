@@ -405,11 +405,11 @@ def test_build_spellbook_with_local_file(
         split=False,
     )
 
-    # Check that output files were created
-    assert (outdir / "combos.jsonl").exists()
-    assert (outdir / "combos.csv").exists()
-    assert (outdir / "combo_card_index.jsonl").exists()
-    assert (outdir / "combos.md").exists()
+    # Check that output files were created in subdirectories
+    assert (outdir / "jsonl" / "combos.jsonl").exists()
+    assert (outdir / "csv" / "combos.csv").exists()
+    assert (outdir / "combo_card_index.jsonl").exists()  # Index at root
+    assert (outdir / "markdown" / "combos.md").exists()
 
 
 def test_build_spellbook_with_gzip(sample_variants_json: Path, tmp_path: Path) -> None:
@@ -424,11 +424,11 @@ def test_build_spellbook_with_gzip(sample_variants_json: Path, tmp_path: Path) -
         split=False,
     )
 
-    # Check that gzipped files were created
-    assert (outdir / "combos.jsonl.gz").exists()
-    assert (outdir / "combos.csv.gz").exists()
-    assert (outdir / "combo_card_index.jsonl.gz").exists()
-    assert (outdir / "combos.md.gz").exists()
+    # Check that gzipped files were created in subdirectories
+    assert (outdir / "jsonl" / "combos.jsonl.gz").exists()
+    assert (outdir / "csv" / "combos.csv.gz").exists()
+    assert (outdir / "combo_card_index.jsonl.gz").exists()  # Index at root
+    assert (outdir / "markdown" / "combos.md.gz").exists()
 
 
 def test_parse_spellbook_combos_handles_missing_fields(tmp_path: Path) -> None:

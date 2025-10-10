@@ -63,6 +63,6 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add data/*.csv.gz data/manifest.json data/spellbook/*.jsonl.gz data/spellbook/*.csv.gz data/spellbook/*.md.gz 2>/dev/null || true
+          git add data/*.csv.gz data/manifest.json data/spellbook/jsonl/*.jsonl.gz data/spellbook/csv/*.csv.gz data/spellbook/markdown/*.md.gz data/spellbook/*.jsonl.gz 2>/dev/null || true
           git diff --staged --quiet || git commit -m "Nightly refresh: Update Scryfall and Spellbook data"
           git push
