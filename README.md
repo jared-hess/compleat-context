@@ -30,6 +30,37 @@ poetry install
 poetry run ccx build
 ```
 
+## Configuration
+
+All settings have reasonable defaults and can be optionally customized via environment variables or a `.env` file.
+
+### Environment Variables
+
+Create a `.env` file in the project root to customize settings (see `.env.example` for all options):
+
+```bash
+# Example .env file
+DATA_DIR=/custom/data/path
+MAX_FILE_SIZE_MB=100
+SCRYFALL_BULK_DATA_URL=https://custom.api.url/bulk-data
+```
+
+### Available Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SCRYFALL_BULK_DATA_URL` | `https://api.scryfall.com/bulk-data` | Scryfall bulk data API endpoint |
+| `ORACLE_CARDS_TYPE` | `oracle_cards` | Scryfall bulk data type for oracle cards |
+| `DEFAULT_CARDS_TYPE` | `default_cards` | Scryfall bulk data type for default cards (pricing) |
+| `SPELLBOOK_URL` | `https://json.commanderspellbook.com/variants.json` | Commander Spellbook API endpoint |
+| `DATA_DIR` | `data` | Output directory for Scryfall data |
+| `SPELLBOOK_DATA_DIR` | `data/spellbook` | Output directory for Spellbook data |
+| `MAX_FILE_SIZE_MB` | `50` | Maximum CSV file size in MB before splitting |
+| `MAX_FILE_SIZE_BYTES` | `536870912` | Maximum JSONL/MD file size in bytes (512MB) |
+| `MAX_TOKENS_PER_FILE` | `2000000` | Maximum tokens per file before splitting |
+
+All settings are optional. If not specified, the defaults will be used.
+
 ## Usage
 
 ### Build Command
