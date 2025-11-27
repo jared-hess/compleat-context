@@ -13,10 +13,15 @@ import ijson  # type: ignore[import-untyped]
 import pandas as pd
 import requests
 
-from ccx.commands.build import MAX_FILE_SIZE_BYTES, MAX_TOKENS_PER_FILE, count_tokens
+from ccx.commands.build import count_tokens
+from ccx.settings import (
+    MAX_FILE_SIZE_BYTES,
+    MAX_TOKENS_PER_FILE,
+    SPELLBOOK_DATA_DIR,
+    SPELLBOOK_URL,
+)
 
-SPELLBOOK_URL = "https://json.commanderspellbook.com/variants.json"
-DATA_DIR = Path("data/spellbook")
+DATA_DIR = SPELLBOOK_DATA_DIR
 
 
 def download_spellbook_data(src: str, cache_path: Path, force: bool = False) -> Path:
