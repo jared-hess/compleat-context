@@ -1,5 +1,5 @@
 {
-  "build_date": "2026-04-22T03:14:02.173154+00:00",
+  "build_date": "2026-04-23T03:13:48.579058+00:00",
   "files": [
     "scryfall_oracle_trimmed.csv.gz",
     "jsonl/scryfall_oracle_trimmed.jsonl.gz",
@@ -11,6 +11,7 @@
     "jsonl/scryfall_oracle_trimmed_7.jsonl.gz",
     "jsonl/scryfall_oracle_trimmed_8.jsonl.gz",
     "jsonl/scryfall_oracle_trimmed_9.jsonl.gz",
+    "jsonl/scryfall_oracle_trimmed_10.jsonl.gz",
     "markdown/scryfall_oracle_trimmed.md.gz",
     "markdown/scryfall_oracle_trimmed_2.md.gz",
     "markdown/scryfall_oracle_trimmed_3.md.gz",
@@ -21,5 +22,5 @@
     "markdown/scryfall_oracle_trimmed_8.md.gz",
     "markdown/scryfall_oracle_trimmed_9.md.gz"
   ],
-  "total_files": 19
+  "total_files": 20
 }
