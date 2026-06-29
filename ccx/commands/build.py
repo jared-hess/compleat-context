@@ -11,14 +11,16 @@ import pandas as pd
 import requests
 import tiktoken
 
-SCRYFALL_BULK_DATA_URL = "https://api.scryfall.com/bulk-data"
-ORACLE_CARDS_TYPE = "oracle_cards"
-DEFAULT_CARDS_TYPE = "default_cards"
-DATA_DIR = Path("data")
-MAX_FILE_SIZE_MB = 50
-MAX_FILE_SIZE_BYTES = 512 * 1024 * 1024  # 512MB
-MAX_TOKENS_PER_FILE = 2_000_000
-WUBRG = ["W", "U", "B", "R", "G"]
+from ccx.settings import (
+    DATA_DIR,
+    DEFAULT_CARDS_TYPE,
+    MAX_FILE_SIZE_BYTES,
+    MAX_FILE_SIZE_MB,
+    MAX_TOKENS_PER_FILE,
+    ORACLE_CARDS_TYPE,
+    SCRYFALL_BULK_DATA_URL,
+    WUBRG,
+)
 
 # Cache the encoding to avoid repeated downloads
 _ENCODING_CACHE: tiktoken.Encoding | None = None
